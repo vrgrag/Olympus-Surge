@@ -1,0 +1,596 @@
+[
+  {
+    "name": "ancient_obelisk",
+    "category": "props",
+    "file": "sprites/props/ancient_obelisk.png",
+    "width": 179,
+    "height": 300,
+    "anchorX": 0.5,
+    "anchorY": 1.0
+  },
+  {
+    "name": "ancient_olympus_map",
+    "category": "props",
+    "file": "sprites/props/ancient_olympus_map.png",
+    "width": 289,
+    "height": 300,
+    "anchorX": 0.5,
+    "anchorY": 1.0
+  },
+  {
+    "name": "ancient_ruins_background",
+    "category": "backgrounds",
+    "file": "sprites/backgrounds/ancient_ruins_background.png",
+    "width": 1584,
+    "height": 672,
+    "anchorX": 0.5,
+    "anchorY": 0.5
+  },
+  {
+    "name": "ares_fire_strike_effect",
+    "category": "vfx",
+    "file": "sprites/vfx/ares_fire_strike_effect.png",
+    "width": 899,
+    "height": 420,
+    "anchorX": 0.5,
+    "anchorY": 0.5
+  },
+  {
+    "name": "ares_god",
+    "category": "heroes",
+    "file": "sprites/heroes/ares_god.png",
+    "width": 373,
+    "height": 320,
+    "anchorX": 0.5,
+    "anchorY": 1.0
+  },
+  {
+    "name": "athena_goddess",
+    "category": "heroes",
+    "file": "sprites/heroes/athena_goddess.png",
+    "width": 218,
+    "height": 320,
+    "anchorX": 0.5,
+    "anchorY": 1.0
+  },
+  {
+    "name": "athena_shield_effect",
+    "category": "vfx",
+    "file": "sprites/vfx/athena_shield_effect.png",
+    "width": 435,
+    "height": 420,
+    "anchorX": 0.5,
+    "anchorY": 0.5
+  },
+  {
+    "name": "celestial_olympus_arena",
+    "category": "arena",
+    "file": "sprites/arena/celestial_olympus_arena.png",
+    "width": 935,
+    "height": 640,
+    "anchorX": 0.5,
+    "anchorY": 0.5
+  },
+  {
+    "name": "celestial_temple_background",
+    "category": "backgrounds",
+    "file": "sprites/backgrounds/celestial_temple_background.png",
+    "width": 1584,
+    "height": 672,
+    "anchorX": 0.5,
+    "anchorY": 0.5
+  },
+  {
+    "name": "chosen_olympus_warrior",
+    "category": "heroes",
+    "file": "sprites/heroes/chosen_olympus_warrior.png",
+    "width": 275,
+    "height": 320,
+    "anchorX": 0.5,
+    "anchorY": 1.0
+  },
+  {
+    "name": "stone_sapphire",
+    "category": "props",
+    "file": "sprites/props/stone_sapphire.png",
+    "width": 168,
+    "height": 300,
+    "anchorX": 0.5,
+    "anchorY": 1.0
+  },
+  {
+    "name": "stone_column",
+    "category": "props",
+    "file": "sprites/props/stone_column.png",
+    "width": 272,
+    "height": 300,
+    "anchorX": 0.5,
+    "anchorY": 1.0
+  },
+  {
+    "name": "stone_amethyst",
+    "category": "props",
+    "file": "sprites/props/stone_amethyst.png",
+    "width": 334,
+    "height": 300,
+    "anchorX": 0.5,
+    "anchorY": 1.0
+  },
+  {
+    "name": "stone_emerald",
+    "category": "props",
+    "file": "sprites/props/stone_emerald.png",
+    "width": 305,
+    "height": 300,
+    "anchorX": 0.5,
+    "anchorY": 1.0
+  },
+  {
+    "name": "divine_crystal_altar",
+    "category": "props",
+    "file": "sprites/props/divine_crystal_altar.png",
+    "width": 389,
+    "height": 300,
+    "anchorX": 0.5,
+    "anchorY": 1.0
+  },
+  {
+    "name": "divine_portal",
+    "category": "props",
+    "file": "sprites/props/divine_portal.png",
+    "width": 419,
+    "height": 300,
+    "anchorX": 0.5,
+    "anchorY": 1.0
+  },
+  {
+    "name": "cloud_platform_large",
+    "category": "arena",
+    "file": "sprites/arena/cloud_platform_large.png",
+    "width": 533,
+    "height": 305,
+    "anchorX": 0.5,
+    "anchorY": 0.5
+  },
+  {
+    "name": "cloud_platform_gate",
+    "category": "arena",
+    "file": "sprites/arena/cloud_platform_gate.png",
+    "width": 455,
+    "height": 276,
+    "anchorX": 0.5,
+    "anchorY": 0.5
+  },
+  {
+    "name": "cloud_platform_wide",
+    "category": "arena",
+    "file": "sprites/arena/cloud_platform_wide.png",
+    "width": 593,
+    "height": 324,
+    "anchorX": 0.5,
+    "anchorY": 0.5
+  },
+  {
+    "name": "cloud_platform_shrine",
+    "category": "arena",
+    "file": "sprites/arena/cloud_platform_shrine.png",
+    "width": 429,
+    "height": 289,
+    "anchorX": 0.5,
+    "anchorY": 0.5
+  },
+  {
+    "name": "flame_wraith",
+    "category": "enemies",
+    "file": "sprites/enemies/flame_wraith.png",
+    "width": 222,
+    "height": 300,
+    "anchorX": 0.5,
+    "anchorY": 1.0
+  },
+  {
+    "name": "frost_wraith",
+    "category": "enemies",
+    "file": "sprites/enemies/frost_wraith.png",
+    "width": 223,
+    "height": 300,
+    "anchorX": 0.5,
+    "anchorY": 1.0
+  },
+  {
+    "name": "shadow_wraith",
+    "category": "enemies",
+    "file": "sprites/enemies/shadow_wraith.png",
+    "width": 272,
+    "height": 300,
+    "anchorX": 0.5,
+    "anchorY": 1.0
+  },
+  {
+    "name": "winged_demon",
+    "category": "enemies",
+    "file": "sprites/enemies/winged_demon.png",
+    "width": 298,
+    "height": 300,
+    "anchorX": 0.5,
+    "anchorY": 1.0
+  },
+  {
+    "name": "gemstone_altar",
+    "category": "props",
+    "file": "sprites/props/gemstone_altar.png",
+    "width": 453,
+    "height": 300,
+    "anchorX": 0.5,
+    "anchorY": 1.0
+  },
+  {
+    "name": "statue_zeus",
+    "category": "props",
+    "file": "sprites/props/statue_zeus.png",
+    "width": 189,
+    "height": 300,
+    "anchorX": 0.5,
+    "anchorY": 1.0
+  },
+  {
+    "name": "statue_athena",
+    "category": "props",
+    "file": "sprites/props/statue_athena.png",
+    "width": 148,
+    "height": 300,
+    "anchorX": 0.5,
+    "anchorY": 1.0
+  },
+  {
+    "name": "statue_ares",
+    "category": "props",
+    "file": "sprites/props/statue_ares.png",
+    "width": 151,
+    "height": 300,
+    "anchorX": 0.5,
+    "anchorY": 1.0
+  },
+  {
+    "name": "statue_hermes",
+    "category": "props",
+    "file": "sprites/props/statue_hermes.png",
+    "width": 166,
+    "height": 300,
+    "anchorX": 0.5,
+    "anchorY": 1.0
+  },
+  {
+    "name": "artifact_amphora",
+    "category": "props",
+    "file": "sprites/props/artifact_amphora.png",
+    "width": 168,
+    "height": 300,
+    "anchorX": 0.5,
+    "anchorY": 1.0
+  },
+  {
+    "name": "artifact_helmet",
+    "category": "props",
+    "file": "sprites/props/artifact_helmet.png",
+    "width": 183,
+    "height": 300,
+    "anchorX": 0.5,
+    "anchorY": 1.0
+  },
+  {
+    "name": "artifact_chalice",
+    "category": "props",
+    "file": "sprites/props/artifact_chalice.png",
+    "width": 280,
+    "height": 300,
+    "anchorX": 0.5,
+    "anchorY": 1.0
+  },
+  {
+    "name": "artifact_relief",
+    "category": "props",
+    "file": "sprites/props/artifact_relief.png",
+    "width": 221,
+    "height": 300,
+    "anchorX": 0.5,
+    "anchorY": 1.0
+  },
+  {
+    "name": "hermes_god",
+    "category": "heroes",
+    "file": "sprites/heroes/hermes_god.png",
+    "width": 272,
+    "height": 320,
+    "anchorX": 0.5,
+    "anchorY": 1.0
+  },
+  {
+    "name": "hermes_wind_vortex_effect",
+    "category": "vfx",
+    "file": "sprites/vfx/hermes_wind_vortex_effect.png",
+    "width": 814,
+    "height": 420,
+    "anchorX": 0.5,
+    "anchorY": 0.5
+  },
+  {
+    "name": "column_tall",
+    "category": "props",
+    "file": "sprites/props/column_tall.png",
+    "width": 144,
+    "height": 300,
+    "anchorX": 0.5,
+    "anchorY": 1.0
+  },
+  {
+    "name": "column_ornate",
+    "category": "props",
+    "file": "sprites/props/column_ornate.png",
+    "width": 126,
+    "height": 300,
+    "anchorX": 0.5,
+    "anchorY": 1.0
+  },
+  {
+    "name": "column_slim",
+    "category": "props",
+    "file": "sprites/props/column_slim.png",
+    "width": 135,
+    "height": 300,
+    "anchorX": 0.5,
+    "anchorY": 1.0
+  },
+  {
+    "name": "column_broken",
+    "category": "props",
+    "file": "sprites/props/column_broken.png",
+    "width": 131,
+    "height": 300,
+    "anchorX": 0.5,
+    "anchorY": 1.0
+  },
+  {
+    "name": "minotaur",
+    "category": "elites",
+    "file": "sprites/elites/minotaur.png",
+    "width": 422,
+    "height": 397,
+    "anchorX": 0.5,
+    "anchorY": 1.0
+  },
+  {
+    "name": "harpy",
+    "category": "elites",
+    "file": "sprites/elites/harpy.png",
+    "width": 378,
+    "height": 426,
+    "anchorX": 0.5,
+    "anchorY": 1.0
+  },
+  {
+    "name": "cerberus",
+    "category": "elites",
+    "file": "sprites/elites/cerberus.png",
+    "width": 396,
+    "height": 404,
+    "anchorX": 0.5,
+    "anchorY": 1.0
+  },
+  {
+    "name": "medusa",
+    "category": "elites",
+    "file": "sprites/elites/medusa.png",
+    "width": 297,
+    "height": 460,
+    "anchorX": 0.5,
+    "anchorY": 1.0
+  },
+  {
+    "name": "bronze_hoplite",
+    "category": "enemies",
+    "file": "sprites/enemies/bronze_hoplite.png",
+    "width": 227,
+    "height": 300,
+    "anchorX": 0.5,
+    "anchorY": 1.0
+  },
+  {
+    "name": "stone_guardian",
+    "category": "enemies",
+    "file": "sprites/enemies/stone_guardian.png",
+    "width": 220,
+    "height": 300,
+    "anchorX": 0.5,
+    "anchorY": 1.0
+  },
+  {
+    "name": "shadow_hoplite",
+    "category": "enemies",
+    "file": "sprites/enemies/shadow_hoplite.png",
+    "width": 132,
+    "height": 300,
+    "anchorX": 0.5,
+    "anchorY": 1.0
+  },
+  {
+    "name": "spectral_champion",
+    "category": "enemies",
+    "file": "sprites/enemies/spectral_champion.png",
+    "width": 224,
+    "height": 300,
+    "anchorX": 0.5,
+    "anchorY": 1.0
+  },
+  {
+    "name": "olympus_clouds_background",
+    "category": "backgrounds",
+    "file": "sprites/backgrounds/olympus_clouds_background.png",
+    "width": 1584,
+    "height": 672,
+    "anchorX": 0.5,
+    "anchorY": 0.5
+  },
+  {
+    "name": "olympus_energy_stone",
+    "category": "gems",
+    "file": "sprites/gems/olympus_energy_stone.png",
+    "width": 73,
+    "height": 110,
+    "anchorX": 0.5,
+    "anchorY": 0.5
+  },
+  {
+    "name": "olympus_gates",
+    "category": "props",
+    "file": "sprites/props/olympus_gates.png",
+    "width": 475,
+    "height": 300,
+    "anchorX": 0.5,
+    "anchorY": 1.0
+  },
+  {
+    "name": "sapphire_zeus",
+    "category": "gems",
+    "file": "sprites/gems/sapphire_zeus.png",
+    "width": 154,
+    "height": 110,
+    "anchorX": 0.5,
+    "anchorY": 0.5
+  },
+  {
+    "name": "ruby_ares",
+    "category": "gems",
+    "file": "sprites/gems/ruby_ares.png",
+    "width": 146,
+    "height": 110,
+    "anchorX": 0.5,
+    "anchorY": 0.5
+  },
+  {
+    "name": "emerald_athena",
+    "category": "gems",
+    "file": "sprites/gems/emerald_athena.png",
+    "width": 150,
+    "height": 110,
+    "anchorX": 0.5,
+    "anchorY": 0.5
+  },
+  {
+    "name": "amethyst_hermes",
+    "category": "gems",
+    "file": "sprites/gems/amethyst_hermes.png",
+    "width": 146,
+    "height": 110,
+    "anchorX": 0.5,
+    "anchorY": 0.5
+  },
+  {
+    "name": "plant_tree",
+    "category": "props",
+    "file": "sprites/props/plant_tree.png",
+    "width": 232,
+    "height": 300,
+    "anchorX": 0.5,
+    "anchorY": 1.0
+  },
+  {
+    "name": "plant_flowers",
+    "category": "props",
+    "file": "sprites/props/plant_flowers.png",
+    "width": 166,
+    "height": 300,
+    "anchorX": 0.5,
+    "anchorY": 1.0
+  },
+  {
+    "name": "plant_bush",
+    "category": "props",
+    "file": "sprites/props/plant_bush.png",
+    "width": 311,
+    "height": 300,
+    "anchorX": 0.5,
+    "anchorY": 1.0
+  },
+  {
+    "name": "plant_sprout",
+    "category": "props",
+    "file": "sprites/props/plant_sprout.png",
+    "width": 137,
+    "height": 300,
+    "anchorX": 0.5,
+    "anchorY": 1.0
+  },
+  {
+    "name": "olympus_temple",
+    "category": "props",
+    "file": "sprites/props/olympus_temple.png",
+    "width": 584,
+    "height": 300,
+    "anchorX": 0.5,
+    "anchorY": 1.0
+  },
+  {
+    "name": "ruined_olympus_temple",
+    "category": "props",
+    "file": "sprites/props/ruined_olympus_temple.png",
+    "width": 399,
+    "height": 300,
+    "anchorX": 0.5,
+    "anchorY": 1.0
+  },
+  {
+    "name": "sacred_energy_fountain",
+    "category": "props",
+    "file": "sprites/props/sacred_energy_fountain.png",
+    "width": 727,
+    "height": 300,
+    "anchorX": 0.5,
+    "anchorY": 1.0
+  },
+  {
+    "name": "temple_treasure_chest",
+    "category": "props",
+    "file": "sprites/props/temple_treasure_chest.png",
+    "width": 331,
+    "height": 300,
+    "anchorX": 0.5,
+    "anchorY": 1.0
+  },
+  {
+    "name": "zeus_god",
+    "category": "heroes",
+    "file": "sprites/heroes/zeus_god.png",
+    "width": 229,
+    "height": 320,
+    "anchorX": 0.5,
+    "anchorY": 1.0
+  },
+  {
+    "name": "zeus_lightning_effect",
+    "category": "vfx",
+    "file": "sprites/vfx/zeus_lightning_effect.png",
+    "width": 478,
+    "height": 420,
+    "anchorX": 0.5,
+    "anchorY": 0.5
+  },
+  {
+    "name": "zeus_throne",
+    "category": "props",
+    "file": "sprites/props/zeus_throne.png",
+    "width": 327,
+    "height": 300,
+    "anchorX": 0.5,
+    "anchorY": 1.0
+  },
+  {
+    "name": "game_name",
+    "category": "ui",
+    "file": "sprites/ui/game_name.png",
+    "width": 426,
+    "height": 420,
+    "anchorX": 0.5,
+    "anchorY": 0.5
+  }
+]
