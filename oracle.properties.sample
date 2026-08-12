@@ -1,0 +1,59 @@
+# Local QA switches for the gray flow. Copy to `oracle.properties`
+# (git-ignored) and edit. Every key here affects DEBUG BUILDS ONLY —
+# the release build hardcodes the safe value for each field no matter
+# what this file says.
+#
+# Re-sync Gradle after editing; these become BuildConfig fields.
+
+# ── The one that actually opens the gray part on a dev device ──
+#
+# Overwrites af_status in the config request body, stamped last so it
+# beats whatever the SDK reported.
+#
+# The backend routes on this single field. Verified against
+# https://olymmpussurge.com/config.php:
+#
+#   af_status = "Non-organic"  -> 200 {"ok":true,"url":...,"expires":...}
+#   af_status = "Organic"      -> 404 {"ok":false,"message":"No data"}
+#   af_status absent           -> 404 {"ok":false,"message":"No data"}
+#
+# Nothing else moves the answer: a body carrying every campaign
+# parameter still gets 404 with af_status=Organic, and a body carrying
+# only af_id + bundle_id + os + store_id + locale gets a URL with
+# af_status=Non-organic.
+#
+# An APK installed directly from the IDE is genuinely an organic
+# install, so without this the WebView half of the app is unreachable
+# on a dev device. Leave empty to see the real verdict.
+oracle.forceStatus=Non-organic
+
+# ── The campaign parameters that fill the destination URL ──
+#
+# A `&`-separated k=v list (values URL-decoded), stamped into the
+# request body after everything else.
+#
+# These are NOT a gate — the backend echoes them into the URL it
+# returns, as sub_id_1..11 and extra_param_2..8. An organic install
+# carries none of them, so forcing only af_status yields a working URL
+# with every sub-id empty, which looks identical to "the app sends
+# nothing" while in fact there was nothing to send.
+#
+# Fill it from the project's test OneLink to get a realistic landing
+# URL. Leave empty to send exactly what the SDK reported.
+oracle.forceParams=
+
+# When false, a "native" verdict from the backend is NOT persisted,
+# and a native verdict written earlier is cleared on launch.
+#
+# In production the first organic answer locks the install into the
+# game for good — correct behaviour, but on a test device it means one
+# accidental organic launch forces an uninstall before the next
+# attempt, because the router returns to the game before it asks
+# anyone anything.
+oracle.stickyVerdict=false
+
+# Skip attribution and the config POST entirely and open the WebView
+# shell on this URL. Narrower than forceStatus: it tests the shell,
+# the safe areas, the push opt-in and the offline screen, but not the
+# routing that decides to show them. Leave empty for the real flow.
+oracle.probeLink=

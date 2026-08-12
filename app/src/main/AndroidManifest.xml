@@ -1,42 +1,142 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- Android 13+ push permission request (POST_NOTIFICATIONS is
+         requested at runtime by OraclePortalActivity). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <uses-feature android:glEsVersion="0x00020000" android:required="true" />
 
+    <!-- Required on API 30+ so the shell can resolve the handler for a
+         link the WebView cannot take (banks, wallets, stores). Without
+         this the resolve silently fails and the tap does nothing. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="http" />
+        </intent>
+    </queries>
+
     <application
-        android:allowBackup="true"
+        android:name="com.olympussurge.game.oracle.OracleRuntime"
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="false"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:label="@string/app_name"
+        android:networkSecurityConfig="@xml/network_security_config"
         android:supportsRtl="false"
-        android:theme="@style/Theme.OlympusSurge">
+        android:theme="@style/Theme.OlympusSurge"
+        android:usesCleartextTraffic="false"
+        tools:replace="android:allowBackup,android:fullBackupContent,android:dataExtractionRules,android:label,android:icon,android:roundIcon,android:theme,android:networkSecurityConfig,android:supportsRtl,android:usesCleartextTraffic"
+        tools:targetApi="31">
 
+        <!-- LAUNCHER: gray-flow portal. Decides between WebView (paid)
+             and native game (organic). -->
         <activity
-            android:name=".SplashActivity"
+            android:name="com.olympussurge.game.oracle.OraclePortalActivity"
             android:exported="true"
+            android:launchMode="singleTop"
             android:screenOrientation="fullSensor"
+            android:windowSoftInputMode="adjustResize"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|density|uiMode"
-            android:theme="@style/Theme.OlympusSurge">
+            android:theme="@style/Theme.OlympusSurge"
+            tools:ignore="DiscouragedApi,LockedOrientationActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- AppsFlyer OneLink handler. Update the host per project
+                 fingerprint — the value below is a placeholder. -->
+            <intent-filter android:autoVerify="false">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="olympussurge.onelink.me" />
+            </intent-filter>
         </activity>
 
+        <!-- WebView shell (gray mode). -->
         <activity
-            android:name=".MainActivity"
+            android:name="com.olympussurge.game.oracle.OracleGateActivity"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:screenOrientation="fullSensor"
+            android:windowSoftInputMode="adjustResize"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|density|uiMode"
+            android:theme="@style/Theme.OlympusSurge"
+            tools:ignore="DiscouragedApi,LockedOrientationActivity" />
+
+        <!-- Push opt-in, shown once between the router and the shell. -->
+        <activity
+            android:name="com.olympussurge.game.oracle.OracleInviteActivity"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:screenOrientation="fullSensor"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|density|uiMode"
+            android:theme="@style/Theme.OlympusSurge"
+            tools:ignore="DiscouragedApi,LockedOrientationActivity" />
+
+        <!-- No-connection screen. Owns its own retry loop. -->
+        <activity
+            android:name="com.olympussurge.game.oracle.OracleOfflineActivity"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:screenOrientation="fullSensor"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|density|uiMode"
+            android:theme="@style/Theme.OlympusSurge"
+            tools:ignore="DiscouragedApi,LockedOrientationActivity" />
+
+        <!-- Native game activities (white mode, offline-safe). -->
+        <activity
+            android:name="com.olympussurge.game.SplashActivity"
+            android:exported="false"
+            android:screenOrientation="fullSensor"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|density|uiMode"
+            android:theme="@style/Theme.OlympusSurge" />
+
+        <activity
+            android:name="com.olympussurge.game.MainActivity"
             android:exported="false"
             android:screenOrientation="sensorLandscape"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|density|uiMode"
             android:theme="@style/Theme.OlympusSurge" />
 
         <activity
-            android:name=".BattleActivity"
+            android:name="com.olympussurge.game.BattleActivity"
             android:exported="false"
             android:screenOrientation="sensorLandscape"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|density|uiMode"
             android:theme="@style/Theme.OlympusSurge" />
+
+        <!-- Firebase Messaging — CHANNEL_ID must match OracleBeacon.CHANNEL_ID. -->
+        <service
+            android:name="com.olympussurge.game.oracle.gateway.OracleTokenService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="oracle_surge_alerts" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_oracle_beacon" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/oracle_beacon_flame" />
 
     </application>
 

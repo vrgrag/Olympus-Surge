@@ -23,3 +23,23 @@ app/src/main/jniLibs/
 
 # Android Gradle cache
 .cxx/
+.kotlin/
+
+# JVM crash dumps from a Gradle/Kotlin daemon that ran out of memory
+hs_err_pid*.log
+replay_pid*.log
+
+# Firebase / release artifacts (gray flow) — never commit these
+app/google-services.json
+app/release/
+app/build/outputs/mapping/
+
+# Scratch packer inputs — never commit plaintext secrets
+tools/pack_secrets.plain.py
+
+# Local gray-flow QA switches (see oracle.properties.sample)
+oracle.properties
+
+# Local project brief overrides (see project.brief.properties.sample)
+project.brief.properties
+

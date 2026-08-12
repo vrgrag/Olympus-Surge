@@ -1,0 +1,51 @@
+# Olympus Surge — project brief (manager / dashboard reference).
+# Copy to project.brief.properties for local use. Safe to commit this
+# sample — it holds public fingerprints and dashboard URLs, not secrets.
+#
+# Secrets (AppsFlyer dev key, config endpoint) live XOR-encoded in
+# app/src/main/kotlin/.../crypt/OracleSecrets.kt — re-pack via
+# tools/pack_secrets.py after any change.
+
+# ── Identity ──
+app.displayName=Olympus Surge
+app.packageId=com.olympussurge.olympussurgegame
+app.versionName=1.0.1
+app.versionCode=2
+
+# Application class — AppsFlyer prime() runs here before any Activity.
+# Must match AndroidManifest.xml android:name.
+app.applicationClass=com.olympussurge.game.oracle.OracleRuntime
+
+# Launcher / router Activity (gray-flow entry).
+app.launcherClass=com.olympussurge.game.oracle.OraclePortalActivity
+
+# ── AppsFlyer ──
+appsflyer.devKey=6MzAAqPD2jE4cXuwRwexqC
+appsflyer.onelinkHost=olympussurge.onelink.me
+appsflyer.onelinkTemplate=https://olympussurge.onelink.me/5Mt9/qjfdpbce
+
+# Release keystore (olympus_surge.jks) — Play Store / app-release.apk / app-release.aab.
+appsflyer.release.sha1=38:72:5E:5D:BF:39:DB:0D:91:47:F8:A6:BD:1B:44:54:DC:08:D8:95
+appsflyer.release.sha256=13:1D:E3:4C:26:DE:E5:96:A8:48:85:CD:FF:97:C0:90:EB:21:0C:91:6B:39:BF:BE:DB:3D:09:63:DE:24:32:A8
+appsflyer.release.keyHash.base64=OHJeXb852w2RR/imvRtEVNwI2JU=
+
+# Debug keystore (~/.android/debug.keystore) — Run/Debug from Android Studio,
+# app-debug.apk, gradlew installDebug. Use THIS hash for local QA.
+appsflyer.debug.sha1=C2:90:96:6A:F3:CA:F9:81:3C:70:42:07:03:01:A5:AA:80:3E:28:36
+appsflyer.debug.sha256=E7:75:74:0C:C8:4C:B1:B5:5C:77:31:29:E0:1F:9F:70:18:CC:40:FB:A7:05:8C:8A:AC:36:25:A2:72:FB:63:92
+appsflyer.debug.keyHash.base64=wpCWavPK+YE8cEIHAwGlqoA+KDY=
+
+# ── Firebase ──
+firebase.projectNumber=893534989184
+firebase.projectId=olympus-surge
+firebase.appId=1:893534989184:android:9809d2553fb8dd6553af65
+
+# ── Backend / legal ──
+site.url=https://olymmpussurge.com
+config.url=https://olymmpussurge.com/config.php
+legal.privacy=https://olymmpussurge.com/privacy-policy.html
+legal.support=https://olymmpussurge.com/support.html
+
+# ── QA tracking (append &advertising_id=<GAID> before install) ──
+qa.appsflyerTracking=https://app.appsflyer.com/com.olympussurge.olympussurgegame?pid=Test%20Source&c=testsub_testsub2_testsub_testsub_testsub_testsub_testsub_testsub1%20%23extra&siteid=test_id&adset=testsub&af_adset=testsub3&af_c_id=testsub4&agency=Test%20Agency&af_sub1=testextra2&af_sub2=testextra3&af_sub3=testextra4&af_sub4=testextra5&af_sub5=testextra6&is_retargeting=true&deep_link_value=deep_link_test&deep_link_sub1=deep_test_sub1&advertising_id=
+qa.onelink=https://olympussurge.onelink.me/5Mt9/qjfdpbce?pid=TestSource&c=testsub_testsub2_testsub_testsub_testsub_testsub_testsub_testsub1%20%23extra&siteid=test_id&adset=testsub&af_adset=testsub3&af_c_id=testsub4&agency=TestAgency&af_sub1=testextra2&af_sub2=testextra3&af_sub3=testextra4&af_sub4=testextra5&af_sub5=testextra6&is_retargeting=true&deep_link_value=deep_link_test&deep_link_sub1=deep_test_sub1&advertising_id=

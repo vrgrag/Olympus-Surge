@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Notification tray icon for the Oracle push channel.
+
+    A status-bar icon is an alpha mask, not a picture: Android discards
+    the colours and tints whatever silhouette it finds. So the source
+    artwork's two gradient-filled flames survive here as geometry only —
+    the outer flame is the body and the inner one is subtracted from it,
+    which is why `fillType` must stay `evenOdd`. Flatten the two into a
+    single solid shape and the icon turns into an unreadable blob.
+
+    Fitted to 22x22 inside the 24dp viewport, so the flame keeps a 1dp
+    margin on every side and the system never clips it. Verified legible
+    at 24, 48 and 63 px (the last is 24dp on a 420dpi device).
+
+    Deliberately unlike the launcher icon (pitfalls §13) and a single
+    #FFFFFF fill so the tray tint produces clean monochrome.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M14.5,1C14.5,1 14.13,2.05 14.45,3.91C14.6,4.77 15.3,6.07 15.83,7.01C17.47,9.91 16.52,12.54 16.52,12.54C16.52,12.54 17.2,11.44 18.04,10.05C18.88,8.65 20.12,8.05 20.12,8.05C20.12,8.05 19.72,8.63 19.59,10.78C19.48,12.67 20.37,14.61 20.12,16.74C19.78,19.65 16.78,22.32 14.17,22.8C12.29,23.15 10.46,23.13 8.44,22.01C5.25,20.23 3.69,16.76 3.84,13.63C3.99,10.76 5.99,7.61 5.9,8.04C5.23,11.03 7.81,12.65 7.81,12.65C7.81,12.65 6.95,8.44 9.04,5.26C11.12,2.08 14.5,1 14.5,1ZM11.72,8.29C11.72,8.29 11.94,11.08 10.5,13.33C9.81,14.42 8.33,15.53 7.71,16.89C7.09,18.24 7.04,19.92 7.99,21.42C8.87,22.84 11.61,23.04 11.94,23.05C14.03,23.14 17.72,21.82 16.51,17.41C16.13,16.02 15.14,15.42 15.14,15.42C15.14,15.42 15.2,16.12 14.65,17.01C14.1,17.91 13.29,18.08 13.29,18.08C13.29,18.08 15.52,16.23 14.25,12.2C13.55,9.97 11.72,8.29 11.72,8.29Z" />
+</vector>

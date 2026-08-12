@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="olympus_night">#FF0A0E22</color>
+    <!-- Tint applied to the monochrome tray icon, taken from the flame artwork. -->
+    <color name="oracle_beacon_flame">#FFFB8C00</color>
 </resources>
