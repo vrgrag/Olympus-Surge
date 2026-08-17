@@ -82,7 +82,42 @@ class IgnitionActivity : ComponentActivity() {
         if (handleAlertShortCircuit()) return
 
         // Normal boot.
+        //
+        // Connectivity is checked BEFORE we touch the attribution SDK.
+        // If the pipe is dead we go straight to the silence screen and
+        // AppsFlyerLib.init/start is never called — that avoids the
+        // vendor SDK entering its 30-45s internal exponential backoff
+        // on its very first install-event dispatch, which is exactly
+        // what caused the "retry loops into game mode instead of the
+        // offer" chain in the OneLink-then-offline-install scenario.
+        // Only when the retry (or auto-recovery) brings the user back
+        // into a real online state does the SDK get its first look at
+        // the network — cleanly, without backoff carried over from a
+        // prior failure.
         lifecycleScope.launch {
+            val online = withContext(Dispatchers.IO) {
+                EtherProbe.awaitOnline(applicationContext)
+            }
+            if (!online) {
+                MnemonicLog.chant(
+                    TAG,
+                    "boot gate: no link → silence (AppsFlyer NOT initialised yet)",
+                )
+                routerVerdict = RouteVerdict.EtherLost
+                tryRoute()
+                return@launch
+            }
+
+            val ready = app().ensureAttributionIgnited()
+            if (!ready) {
+                MnemonicLog.warn(
+                    TAG,
+                    "boot gate: attribution init failed → proceeding with null payload",
+                )
+            } else {
+                MnemonicLog.chant(TAG, "boot gate: link up, attribution SDK ready")
+            }
+
             val verdict = withContext(Dispatchers.IO) {
                 OracleRouter(applicationContext, app().vault).pickNext()
             }

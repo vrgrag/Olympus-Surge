@@ -14,17 +14,25 @@ import com.olympussurge.game.sanctum.lore.MnemonicLog
 import com.olympussurge.game.sanctum.lore.NectarCipher
 import com.olympussurge.game.atrium.appsflyer.ChariotAttribution
 import com.olympussurge.game.atrium.data.SanctumVault
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Process entry-point.
  *
  * Responsibilities:
  *   1. Own the single [SanctumVault] instance for the whole process.
- *   2. Kick the attribution SDK off as early as possible so that by
- *      the time [IgnitionActivity] hands to the router, we already have
- *      a payload (or a definitive timeout).
- *   3. Register the FCM notification channel referenced from the
+ *   2. Register the FCM notification channel referenced from the
  *      manifest so that pushes on Android 8+ have a proper channel.
+ *   3. Expose an idempotent [ensureAttributionIgnited] entry point that
+ *      the router-owning activity calls only AFTER connectivity has
+ *      been confirmed. Starting the attribution SDK from `onCreate`
+ *      unconditionally is what triggered the "offline install → retry
+ *      loops into game mode" bug: the SDK's very first install-event
+ *      call would fail on the dead pipe, drop into a 30-45s internal
+ *      exponential backoff, and every subsequent in-process retry
+ *      would silently no-op until the user cold-launched the app from
+ *      the launcher. Deferring the init until we have a real link
+ *      means the SDK never sees the offline state at all.
  *
  * Anything that fails here is swallowed — the spec explicitly says push
  * / attribution failures must never take the whole app down.
@@ -36,6 +44,10 @@ class SanctumApplication : Application() {
 
     private var bootAt: Long = 0L
 
+    /** True once [ensureAttributionIgnited] has actually wired up the
+     *  vendor SDK. Guards against duplicate init calls. */
+    private val attributionIgnited = AtomicBoolean(false)
+
     override fun onCreate() {
         super.onCreate()
         instance = this
@@ -44,13 +56,37 @@ class SanctumApplication : Application() {
         // The bootstrap order below is intentional and independent from
         // any other project in the same shape — see the uniqueness
         // manifest for the rationale. Do not casually reorder.
+        //
+        // Note: `igniteAttribution` is NOT called here anymore. See
+        // [ensureAttributionIgnited] and the class-level doc.
         awakenVault()
         warmChaosSeed()
         pinAlertChannel()
         calibrateInternalMath()
-        igniteAttribution()
         traceReadyMarker()
     }
+
+    /**
+     * Idempotent late-boot for the attribution SDK. Called by
+     * [IgnitionActivity] once connectivity has been confirmed. Safe to
+     * call multiple times — only the first call runs the init; every
+     * subsequent call is a cheap no-op.
+     *
+     * Returns true iff the SDK is ready to deliver attribution after
+     * this call (i.e. init ran either now or previously). A `false`
+     * return only happens when the vendor library itself blew up during
+     * init — in that case the caller should treat attribution as
+     * permanently unavailable and hand a null payload to the router.
+     */
+    fun ensureAttributionIgnited(): Boolean {
+        if (!attributionIgnited.compareAndSet(false, true)) return true
+        return igniteAttribution().also { ok ->
+            if (!ok) attributionIgnited.set(false)
+        }
+    }
+
+    /** True once the SDK has been wired up in this process. */
+    fun isAttributionIgnited(): Boolean = attributionIgnited.get()
 
     private fun awakenVault() {
         vault = SanctumVault(this)
@@ -79,8 +115,19 @@ class SanctumApplication : Application() {
         IchorMath.calibrate()
     }
 
-    private fun igniteAttribution() {
-        runCatching {
+    /**
+     * Wires up the vendor attribution SDK. Kept private so callers can
+     * only reach it through [ensureAttributionIgnited], which enforces
+     * the "one init per process" invariant.
+     *
+     * Returns true on success. A `false` return means the vendor
+     * library threw during init — extremely rare (bad manifest, missing
+     * native lib), but the caller needs to know so it can proceed with
+     * a null attribution payload instead of waiting forever for a
+     * callback that will never fire.
+     */
+    private fun igniteAttribution(): Boolean {
+        val outcome = runCatching {
             val listener = object : AppsFlyerConversionListener {
                 override fun onConversionDataSuccess(data: MutableMap<String, Any>?) {
                     // Empty map is still a definitive server answer
@@ -101,7 +148,10 @@ class SanctumApplication : Application() {
                 subscribeForDeepLink { result -> ChariotAttribution.onDeepLink(result) }
                 start(this@SanctumApplication)
             }
-        }.onFailure { MnemonicLog.cry(TAG, "attribution SDK init crashed", it) }
+            MnemonicLog.chant(TAG, "attribution SDK ignited (deferred until online)")
+        }
+        outcome.onFailure { MnemonicLog.cry(TAG, "attribution SDK init crashed", it) }
+        return outcome.isSuccess
     }
 
     private fun traceReadyMarker() {

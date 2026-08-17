@@ -1,7 +1,5 @@
 ﻿package com.olympussurge.game.atrium
 
-import android.app.AlarmManager
-import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
@@ -11,7 +9,6 @@ import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import android.os.Build
 import android.os.Bundle
-import android.os.SystemClock
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
@@ -74,8 +71,10 @@ import java.util.concurrent.atomic.AtomicBoolean
  *     `ConnectivityManager.activeNetwork` still returned null, so we
  *     wrongly bounced them right back to this screen. Instead, Retry
  *     unconditionally relaunches the pipeline (with a short spinner
- *     dwell for feedback) — the router's own offline gate handles the
- *     "still no route" case cheaply and consistently.
+ *     dwell for feedback) — [IgnitionActivity]'s own connectivity gate
+ *     handles the "still no route" case cheaply and consistently, and
+ *     the vendor SDKs are only spun up once that gate reports online,
+ *     so no backoff carries over across a retry.
  *   • A one-shot [ConnectivityManager.NetworkCallback] listens for a
  *     validated INTERNET-capable network coming up while the user is
  *     staring at this screen, and auto-triggers the same relaunch. So
@@ -86,7 +85,6 @@ class EtherSilenceActivity : ComponentActivity() {
     private var checking by mutableStateOf(false)
     private val relaunchGuard = AtomicBoolean(false)
     private var netCallback: ConnectivityManager.NetworkCallback? = null
-    private var stallAutoRetry: kotlinx.coroutines.Job? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -120,48 +118,11 @@ class EtherSilenceActivity : ComponentActivity() {
         }
 
         registerConnectivityWatch()
-        armStallAutoRetry()
     }
 
     override fun onDestroy() {
-        stallAutoRetry?.cancel()
-        stallAutoRetry = null
         unregisterConnectivityWatch()
         super.onDestroy()
-    }
-
-    /**
-     * Fires when the router bounced us here because attribution was
-     * still stuck even though the pipe was up (see the "attribution
-     * stall gate" in `OracleRouter.pickForFirstBoot`). We detect
-     * that state cheaply: if the OS still reports an online default
-     * network at the moment we opened, this open cannot be a real
-     * no-Wi-Fi event — the only remaining explanation is the router
-     * bounced us. The connectivity watch skips registration on the
-     * same condition (a "ghost network" open would otherwise fire
-     * auto-relaunch instantly and loop the user through the splash
-     * forever), so we schedule a single delayed relaunch to give
-     * the vendor's SDK / server pipeline more real wall-clock time
-     * to converge before the router tries the waterfall again. The
-     * user does not have to tap Retry.
-     *
-     * If they DO tap Retry earlier, the guard in [startRetry]
-     * disarms the auto-retry (the launcher path becomes the same
-     * activity swap; the timer would be a no-op anyway).
-     */
-    private fun armStallAutoRetry() {
-        if (!EtherProbe.online(this)) return
-        MnemonicLog.chant(
-            TAG,
-            "silence opened while online → arming auto-retry in ${STALL_AUTO_RETRY_MS}ms",
-        )
-        stallAutoRetry = lifecycleScope.launch {
-            delay(STALL_AUTO_RETRY_MS)
-            if (!isFinishing && !isDestroyed) {
-                MnemonicLog.chant(TAG, "silence auto-retry timer fired")
-                startRetry()
-            }
-        }
     }
 
     /**
@@ -228,90 +189,47 @@ class EtherSilenceActivity : ComponentActivity() {
     }
 
     /**
-     * Retry path. Relaunches the whole app in a **fresh OS process** so
-     * the attribution SDK gets a truly clean slate.
+     * Retry path. Simple in-process relaunch of [IgnitionActivity].
      *
-     * The naive "call `.start()` again and relaunch Ignition" approach
-     * fails on a very common real-world chain:
+     * A previous revision here scheduled a full process restart via
+     * [android.app.AlarmManager] + `Runtime.getRuntime().exit(0)` on
+     * every Retry tap in order to flush the attribution SDK's internal
+     * backoff. That workaround is obsolete: the SDK is no longer
+     * started in [SanctumApplication.onCreate]; it is only started
+     * from [IgnitionActivity] AFTER an explicit connectivity gate has
+     * confirmed the pipe is up. Because of that, the SDK never sees
+     * an offline first-init, never enters the 30-45s backoff, and the
+     * retry cycle can be a plain activity swap — cheaper, faster,
+     * survives OEM background-launch restrictions that sometimes drop
+     * scheduled alarm intents on Android 14+.
      *
-     *   1. User taps a OneLink while online.
-     *   2. Wi-Fi goes off before the install completes.
-     *   3. App opens offline → SDK boots but its very first install-
-     *      event HTTP call fails; it enters an internal exponential
-     *      backoff (30-45s per vendor docs).
-     *   4. User enables Wi-Fi, taps Retry inside the SAME process.
-     *   5. `AppsFlyerLib.start()` on the same process is a no-op while
-     *      the SDK is inside its backoff window — no new install event
-     *      is dispatched, the conversion callback never fires, the
-     *      attribution deferred stays pending forever, the router
-     *      waterfall times out empty, we bounce back to silence, the
-     *      cycle repeats. The user sees a "loading → no-wifi → loading
-     *      → no-wifi" loop that only ends when the app is manually
-     *      cold-launched from the launcher (fresh process resets the
-     *      backoff and the SDK finally succeeds).
-     *
-     * The reliable fix is exactly that: force a fresh process on Retry.
-     * We schedule the launcher activity via [AlarmManager] with a
-     * short delay, then `exit(0)` immediately. Android brings up a
-     * brand-new process for the alarm's intent (~150ms later), the SDK
-     * re-initialises, and the first install-event attempt lands
-     * against a clean slate. On the network side this is the same
-     * cost as a manual launcher tap.
-     *
-     * A pending [EXTRA_RESUME_URL] is preserved across the restart so
-     * a user who lost connectivity inside the WebView returns to the
-     * exact same page, not the stage's front door.
+     * Any pending [EXTRA_RESUME_URL] is forwarded so a user who lost
+     * connectivity inside the WebView returns to the exact same page,
+     * not the stage's front door.
      */
     private fun startRetry() {
         if (!relaunchGuard.compareAndSet(false, true)) return
-        stallAutoRetry?.cancel()
-        stallAutoRetry = null
         checking = true
         val resumeUrl = intent.getStringExtra(EXTRA_RESUME_URL)
 
         lifecycleScope.launch {
             // Short spinner dwell so the tap visibly did something
-            // before the screen goes dark for the process swap.
+            // before the activity swaps.
             delay(RETRY_DWELL_MS)
-            hardRestartIntoIgnition(resumeUrl)
-        }
-    }
-
-    /**
-     * Schedules a launcher-activity relaunch through [AlarmManager]
-     * (fires ~150ms after this call, in a fresh process) then
-     * terminates the current process. Android delivers the pending
-     * intent to a newly-spawned process, which restarts
-     * [SanctumApplication] from `onCreate` — the attribution SDK gets
-     * a clean init, Firebase re-boots, no in-memory backoff carries
-     * over. Uses inexact `set` to avoid the `SCHEDULE_EXACT_ALARM`
-     * permission dance on Android 12+; a 150ms best-effort delay from
-     * a foreground UI tap is delivered without visible slippage.
-     */
-    private fun hardRestartIntoIgnition(resumeUrl: String?) {
-        MnemonicLog.chant(
-            TAG,
-            "hard restart: scheduling fresh Ignition in ${RESTART_HANDOFF_MS}ms " +
-                "and terminating current process (resume=${resumeUrl != null})",
-        )
-        val ctx = applicationContext
-        val restartIntent = Intent(ctx, IgnitionActivity::class.java).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-            if (!resumeUrl.isNullOrBlank()) {
-                putExtra(IgnitionActivity.EXTRA_RESUME_URL, resumeUrl)
+            val next = Intent(this@EtherSilenceActivity, IgnitionActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
+                if (!resumeUrl.isNullOrBlank()) {
+                    putExtra(IgnitionActivity.EXTRA_RESUME_URL, resumeUrl)
+                }
             }
+            MnemonicLog.chant(
+                TAG,
+                "retry: relaunching Ignition (resume=${resumeUrl != null})",
+            )
+            startActivity(next)
+            overridePendingTransition(0, 0)
+            finish()
         }
-        val flags = PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE
-        val pending = PendingIntent.getActivity(ctx, RESTART_REQUEST_CODE, restartIntent, flags)
-        val alarm = ctx.getSystemService(Context.ALARM_SERVICE) as? AlarmManager
-        alarm?.set(
-            AlarmManager.ELAPSED_REALTIME,
-            SystemClock.elapsedRealtime() + RESTART_HANDOFF_MS,
-            pending,
-        )
-        finish()
-        overridePendingTransition(0, 0)
-        Runtime.getRuntime().exit(0)
     }
 
     private fun goImmersive() {
@@ -342,24 +260,6 @@ class EtherSilenceActivity : ComponentActivity() {
          *  like it did something before the activity swap. Not a
          *  round 500 — the sibling Kotlin port uses 500. */
         private const val RETRY_DWELL_MS = 420L
-
-        /** Delay before the silent auto-retry timer fires. Only used
-         *  when the router bounced us here because attribution was
-         *  still stalled (see `OracleRouter`); a genuine "no Wi-Fi"
-         *  open leaves the timer disarmed and waits for the network
-         *  callback / user tap instead. Long enough to buy AppsFlyer
-         *  another real attribution attempt across the wire, short
-         *  enough that the silence screen doesn't feel abandoned. */
-        private const val STALL_AUTO_RETRY_MS = 3_400L
-
-        /** How long the scheduled restart alarm waits after we kill
-         *  the current process before Android brings up the new one.
-         *  Short enough for the user to see a single seamless swap. */
-        private const val RESTART_HANDOFF_MS = 160L
-
-        /** PendingIntent request code for the restart alarm.
-         *  Arbitrary — never collides with anything else in the app. */
-        private const val RESTART_REQUEST_CODE = 0x4E52 // "NR"
 
         /** URL the user was on when connectivity dropped — preserved so
          *  a successful Retry resumes on the exact same page. */
