@@ -1,4 +1,39 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Olympus Surge</string>
+
+    <string name="push_skip">Skip</string>
+    <string name="privacy_policy_label">Privacy Policy</string>
+    <string name="notification_channel_default">Olympus Surge</string>
+
+    <string name="push_body">Get notified about divine offers, new arenas and exclusive rewards.</string>
+    <string name="privacy_policy_url">https://olymmpussurge.com/privacy-policy.html</string>
+
+    <string name="no_wifi_retry">Try again</string>
+    <string name="notification_channel_default_desc">Bonuses, offers and updates from the gods of Olympus.</string>
+
+    <string name="push_accept">Yes, I Want Bonuses!</string>
+    <string name="support_url">https://olymmpussurge.com/support.html</string>
+
+    <string name="no_wifi_message">No internet connection detected. Reconnect to enter the divine arena.</string>
+    <string name="push_title">Bonuses from Olympus?</string>
+    <string name="no_wifi_title">Olympus has lost its voice</string>
+
+    <!-- Ambient thematic strings referenced by internal boot chants and
+         diagnostic hooks; kept in resources so they can be re-localised
+         later without touching Kotlin. -->
+    <string name="sanctum_lore_dawn">Dawn breaks over Olympus.</string>
+    <string name="sanctum_lore_forge">The forge of Hephaestus hums awake.</string>
+    <string name="sanctum_lore_muses">The nine Muses tune their kithara.</string>
+    <string name="sanctum_lore_oracle">The oracle at Delphi opens her eyes.</string>
+    <string name="sanctum_lore_herald">A herald sets out with a scroll.</string>
+    <string name="sanctum_lore_ambrosia">Ambrosia is served on golden plates.</string>
+    <string name="sanctum_lore_hymn">A hymn rises from the sanctum below.</string>
+    <string name="sanctum_lore_pegasus">Pegasus stretches his wings.</string>
+    <string name="sanctum_lore_chariot">The chariot of Helios rolls east.</string>
+    <string name="sanctum_lore_phalanx">The phalanx forms up on the plains.</string>
+    <string name="sanctum_lore_tempest">A tempest brews above Ithaca.</string>
+    <string name="sanctum_lore_manna">Manna falls silently from the sky.</string>
+    <string name="sanctum_lore_kleos">Kleos is measured in songs, not gold.</string>
+    <string name="sanctum_lore_zephyr">Zephyr whispers through the olive grove.</string>
 </resources>

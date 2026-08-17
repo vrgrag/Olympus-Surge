@@ -38,6 +38,13 @@ import androidx.compose.ui.unit.sp
 import com.olympussurge.game.R
 import com.olympussurge.game.boot.Warmup
 import kotlinx.coroutines.delay
+import kotlin.system.measureTimeMillis
+
+/** Minimum wall-clock time we hold each warmup step for, in ms.
+ *  Sized so 4 real steps × MIN_STEP_MS ≈ the router's worst-case
+ *  offline gate (~2.4s TCP probe) — the bar's advancement covers the
+ *  whole splash duration on a warm device, not just the first second. */
+private const val MIN_STEP_MS = 560L
 
 /**
  * Boot screen shown while the app warms up.
@@ -56,9 +63,17 @@ fun SplashScreen(onReady: () -> Unit) {
     var finished by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
+        // Enforce a minimum wall-clock duration per step so the bar
+        // advances at a readable pace even when the underlying work
+        // completes in a few tens of milliseconds. Without this, on a
+        // warm device the bar would leap 0 → 92 % in well under a
+        // second and then just sit there while the router probed the
+        // network — reading to the user as "loaded but stuck".
         for (step in steps) {
             stage = step.label
-            step.run(context)
+            val elapsed = measureTimeMillis { step.run(context) }
+            val hold = MIN_STEP_MS - elapsed
+            if (hold > 0) delay(hold)
             completed++
         }
         stage = "Entering Olympus"
@@ -73,7 +88,10 @@ fun SplashScreen(onReady: () -> Unit) {
     val target = if (finished) 1f else (completed.toFloat() / steps.size) * 0.92f
     val progress by animateFloatAsState(
         targetValue = target,
-        animationSpec = tween(durationMillis = 260),
+        // Animation duration matches the min-step hold so successive
+        // segments blend into one continuous fill rather than a set of
+        // discrete jumps.
+        animationSpec = tween(durationMillis = 420),
         label = "loadProgress",
     )
 

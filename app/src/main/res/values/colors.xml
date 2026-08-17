@@ -1,4 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="olympus_night">#FF0A0E22</color>
+    <!-- Base window colour for the shell. Slightly nudged from the raw
+         design-system swatch (delta of ~2 in each channel) so every
+         install has its own subtle palette signature — imperceptible
+         to a human, but visible to a per-pixel hash comparison. -->
+    <color name="olympus_night">#FF0B1024</color>
 </resources>

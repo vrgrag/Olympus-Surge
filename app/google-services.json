@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "893534989184",
+    "project_id": "olympus-surge",
+    "storage_bucket": "olympus-surge.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:893534989184:android:9809d2553fb8dd6553af65",
+        "android_client_info": {
+          "package_name": "com.olympussurge.olympussurgegame"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBGnrWl_T46_vwWRmSNk-_3WzqN01GKT-c"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

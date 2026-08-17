@@ -1,4 +1,4 @@
-package com.olympussurge.game
+﻿package com.olympussurge.game
 
 import android.app.Activity
 import android.content.Context
@@ -14,11 +14,11 @@ import com.olympussurge.game.world.RunModifiers
  * Hosts the libGDX render surface for a single run.
  *
  * Battle lives in its own activity so the GL surface has a clean lifecycle of
- * its own; menus stay in Compose in [MainActivity]. Temple bonuses travel in
+ * its own; menus stay in Compose in [PantheonActivity]. Temple bonuses travel in
  * with the intent and the outcome travels back as an activity result, which
  * keeps the game module free of Android storage APIs.
  */
-class BattleActivity : AndroidApplication() {
+class TrialActivity : AndroidApplication() {
 
     private var victory = false
     private var waves = 0
@@ -130,7 +130,7 @@ class BattleActivity : AndroidApplication() {
         /** Builds the launch intent carrying the player's permanent bonuses. */
         fun intent(context: Context, profile: PlayerProfile, levelId: String): Intent {
             val bonuses = profile.bonuses
-            return Intent(context, BattleActivity::class.java).apply {
+            return Intent(context, TrialActivity::class.java).apply {
                 putExtra(EXTRA_LEVEL_ID, levelId)
                 putExtra(EXTRA_BONUS_HEALTH, bonuses.bonusMaxHealth)
                 putExtra(EXTRA_DAMAGE, bonuses.damageMultiplier)

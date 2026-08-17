@@ -1,0 +1,99 @@
+{
+  "seed": "a7f3c9d1-8b42-4e6f-9c15-2d8e4f7b6a30",
+  "generated_at": "2026-08-17T13:20:00Z",
+  "project": "olympus-surge",
+  "theme": "greek-olympus",
+
+  "architecture": "activity-based",
+  "di": "manual-servicelocator",
+  "package_root": "com.olympussurge.game",
+  "shell_subpackage": "com.olympussurge.game.atrium",
+  "decoy_subpackage": "com.olympussurge.game.sanctum.lore",
+
+  "vocabulary": [
+    "Aegis", "Ambrosia", "Anthem", "Chariot", "Chorus",
+    "Delphi", "Ether", "Fable", "Gorge", "Hades",
+    "Herald", "Hymn", "Ichor", "Ithaca", "Kithara",
+    "Kleos", "Kraken", "Lyre", "Manna", "Nectar",
+    "Oracle", "Pantheon", "Pegasus", "Phalanx", "Rhapsody",
+    "Sanctum", "Sirens", "Tempest", "Titan", "Zephyr"
+  ],
+
+  "sdk_init_order": [
+    "sanctumVault.wake",
+    "herbalRandom.warmSeed",
+    "hymnRelay.pinChannel",
+    "ichorMath.calibrate",
+    "chariotAttribution.dawn",
+    "mnemonicLog.chant"
+  ],
+
+  "js_storage_method": "res-raw-fragments-shuffled",
+  "js_sentinels": {
+    "safe_area": "__delphi_veil",
+    "keyboard": "__lyre_dock",
+    "keyboard_report": "__lyre_ping",
+    "bridge_name": "NectarInput"
+  },
+
+  "obfuscation_style": "kotlin-r8-with-dict-planned",
+
+  "renames": {
+    "OlympusSurgeApp": "SanctumApplication",
+    "WebViewActivity": "SanctumStageActivity",
+    "NoInternetActivity": "EtherSilenceActivity",
+    "NotificationsPermissionActivity": "OracleConsentActivity",
+    "BootRouter": "OracleRouter",
+    "RouteDecision": "RouteVerdict",
+    "KeyboardPan": "LyreInputRider",
+    "ConnectivityMonitor": "EtherProbe",
+    "PushBus": "HymnRelay",
+    "OlympusMessagingService": "HymnMessagingService",
+    "ShellPreferences": "SanctumVault",
+    "AppMode": "SanctumChannel",
+    "ConversionDataHolder": "ChariotAttribution",
+    "ConfigApi": "OracleApi",
+    "ConfigRequestBuilder": "OracleQuery",
+    "ConfigResponse": "OracleReply",
+    "ClientFields": "ChariotClientFields",
+    "ConfigEndpoint": "DelphiEndpoint"
+  },
+
+  "storage_keys_renamed": {
+    "prefs_file": "sanctum_vault_prefs",
+    "notification_channel_id": "sanctum_oracle_call",
+    "extra_return_url": "sanctum.extra.return_url",
+    "extra_push_url": "sanctum.extra.push_url",
+    "extra_start_url": "sanctum.extra.start_url",
+    "extra_notif_return_url": "sanctum.extra.silence_return_url",
+    "extra_notif_url": "sanctum.extra.consent_url"
+  },
+
+  "randomized_constants": {
+    "seed_derived_note": "values below are picked once from the seed and frozen in code",
+    "MAX_REDIRECT_HOPS": 7,
+    "REDIRECT_RETRY_DELAY_MS": 95,
+    "OFFLINE_DEBOUNCE_MS": 720,
+    "FIRST_LAUNCH_CONVERSION_TIMEOUT_MS": 18500,
+    "SUBSEQUENT_CONVERSION_TIMEOUT_MS": 4700,
+    "DEEP_LINK_TIMEOUT_MS": 3800,
+    "IME_SETTLE_MS": 155,
+    "IME_PAN_MS": 175,
+    "PUSH_DEDUPE_WINDOW_MS": 2300,
+    "PUSH_PROMPT_COOLDOWN_DAYS": 3
+  },
+
+  "gradle": {
+    "versionCode": 1042,
+    "versionName": "0.9.7-alpha",
+    "minSdk": 30,
+    "targetSdk": 35,
+    "compileSdk": 36
+  },
+
+  "notes": [
+    "package/applicationId untouched — locked to Firebase + AppsFlyer + Play Console",
+    "IgnitionActivity/PantheonActivity/TrialActivity file names untouched — game surfaces and launcher intent-filter live here; renaming has zero fingerprint benefit and non-zero regression risk",
+    "storage prefs FILE was renamed; users lose stateful mode/url on first launch after upgrade — acceptable since project has not shipped"
+  ]
+}

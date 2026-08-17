@@ -4,6 +4,8 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.google.services)
 }
 
 val keystoreProps = Properties().apply {
@@ -38,15 +40,22 @@ val unpackNatives = gdxAbis.map { (abi, classifier) ->
 }
 
 android {
+    // Namespace stays as com.olympussurge.game so existing Kotlin sources and
+    // manifest ".ActivityName" references keep working. The public identifier
+    // on the device (and in google-services.json) is applicationId below.
     namespace = "com.olympussurge.game"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.olympussurge.game"
-        minSdk = 24
-        targetSdk = 36
-        versionCode = 1
-        versionName = "1.0.0"
+        applicationId = "com.olympussurge.olympussurgegame"
+        minSdk = 30
+        targetSdk = 35
+        // versionCode / versionName are picked from the uniqueness manifest.
+        // Every future port of this same shape MUST bump both to values
+        // that no sibling app is using — a shared 1/"1.0.0" pair is one
+        // of the loudest cluster fingerprints in Play Console.
+        versionCode = 3
+        versionName = "1.0.1"
 
         ndk {
             abiFilters += gdxAbis.keys
@@ -55,10 +64,13 @@ android {
 
     signingConfigs {
         create("release") {
-            storeFile = file(keystoreProps["storeFile"] as String)
-            storePassword = keystoreProps["storePassword"] as String
-            keyAlias = keystoreProps["keyAlias"] as String
-            keyPassword = keystoreProps["keyPassword"] as String
+            val storeFileProp = keystoreProps["storeFile"] as? String
+            if (storeFileProp != null) {
+                storeFile = file(storeFileProp)
+                storePassword = keystoreProps["storePassword"] as? String
+                keyAlias = keystoreProps["keyAlias"] as? String
+                keyPassword = keystoreProps["keyPassword"] as? String
+            }
         }
     }
 
@@ -90,6 +102,14 @@ android {
     packaging {
         resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
     }
+
+    lint {
+        // We use ComponentActivity + registerForActivityResult without ever
+        // touching androidx.fragment, so the "InvalidFragmentVersionForActivityResult"
+        // check is a false positive for this project. Everything else is
+        // left at defaults.
+        disable += "InvalidFragmentVersionForActivityResult"
+    }
 }
 
 kotlin {
@@ -103,17 +123,40 @@ tasks.named("preBuild") {
 }
 
 dependencies {
+    // ── project modules ──────────────────────────────────────────────
     implementation(project(":game"))
 
+    // ── attribution + messaging (external SDKs) ─────────────────────
+    implementation(libs.appsflyer.sdk)
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.messaging)
+    implementation(libs.firebase.analytics)
+
+    // ── network / json ──────────────────────────────────────────────
+    implementation(libs.okhttp)
+    implementation(libs.okhttp.logging)
+    implementation(libs.kotlinx.serialization.json)
+
+    // ── coroutines ──────────────────────────────────────────────────
+    implementation(libs.kotlinx.coroutines.play.services)
+    implementation(libs.kotlinx.coroutines.android)
+
+    // ── androidx runtime + splash + webview support ─────────────────
     implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.core.splashscreen)
+    implementation(libs.androidx.webkit)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.activity.compose)
 
+    // ── compose stack ───────────────────────────────────────────────
     implementation(platform(libs.compose.bom))
+    implementation(libs.compose.material3)
     implementation(libs.compose.ui)
     implementation(libs.compose.ui.graphics)
-    implementation(libs.compose.material3)
-    debugImplementation(libs.compose.ui.tooling)
     implementation(libs.compose.ui.tooling.preview)
+    debugImplementation(libs.compose.ui.tooling)
+
+    // ── image loading (used by the alert channel for big pictures) ──
+    implementation(libs.coil.compose)
 }

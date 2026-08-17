@@ -1,4 +1,4 @@
-package com.olympussurge.game
+﻿package com.olympussurge.game
 
 import android.content.Intent
 import android.os.Bundle
@@ -40,7 +40,7 @@ import com.olympussurge.game.util.importAvatarPhoto
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
-class MainActivity : ComponentActivity() {
+class PantheonActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -88,19 +88,19 @@ private fun OlympusApp() {
         ActivityResultContracts.StartActivityForResult()
     ) { activityResult ->
         val data = activityResult.data ?: return@rememberLauncherForActivityResult
-        if (!data.getBooleanExtra(BattleActivity.EXTRA_FINISHED, false)) {
+        if (!data.getBooleanExtra(TrialActivity.EXTRA_FINISHED, false)) {
             return@rememberLauncherForActivityResult
         }
 
         scope.launch {
-            lastStars = data.getIntExtra(BattleActivity.EXTRA_STARS, 0)
+            lastStars = data.getIntExtra(TrialActivity.EXTRA_STARS, 0)
             val record = store.recordRun(
-                victory = data.getBooleanExtra(BattleActivity.EXTRA_VICTORY, false),
-                waves = data.getIntExtra(BattleActivity.EXTRA_WAVES, 0),
-                kills = data.getIntExtra(BattleActivity.EXTRA_KILLS, 0),
-                gems = data.getIntExtra(BattleActivity.EXTRA_GEMS, 0),
-                durationSeconds = data.getIntExtra(BattleActivity.EXTRA_DURATION, 0),
-                levelId = data.getStringExtra(BattleActivity.EXTRA_LEVEL_ID).orEmpty(),
+                victory = data.getBooleanExtra(TrialActivity.EXTRA_VICTORY, false),
+                waves = data.getIntExtra(TrialActivity.EXTRA_WAVES, 0),
+                kills = data.getIntExtra(TrialActivity.EXTRA_KILLS, 0),
+                gems = data.getIntExtra(TrialActivity.EXTRA_GEMS, 0),
+                durationSeconds = data.getIntExtra(TrialActivity.EXTRA_DURATION, 0),
+                levelId = data.getStringExtra(TrialActivity.EXTRA_LEVEL_ID).orEmpty(),
                 stars = lastStars,
             )
             lastRecord = record
@@ -123,7 +123,7 @@ private fun OlympusApp() {
     var lastLevelId by remember { mutableStateOf(Levels.all.first().id) }
     val startRun = { levelId: String ->
         lastLevelId = levelId
-        battleLauncher.launch(BattleActivity.intent(context, profile, levelId))
+        battleLauncher.launch(TrialActivity.intent(context, profile, levelId))
     }
     // "Continue" jumps to the deepest arena the player has unlocked.
     val nextLevel = {

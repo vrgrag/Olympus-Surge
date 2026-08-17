@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Adaptive-icon foreground wrapper.
+
+    The raw `ic_launcher_foreground.png` fills the whole 108dp canvas,
+    which makes launcher masks (round, squircle, teardrop) crop the top
+    and edges of the artwork — the "not-adaptive" look the operator
+    was complaining about. Wrapping the bitmap in an <inset> shrinks
+    it into the 66dp adaptive safe-zone (16% inset on each side), so
+    every launcher mask now shows the full artwork with a comfortable
+    margin around it.
+-->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@mipmap/ic_launcher_foreground"
+    android:inset="16%" />
