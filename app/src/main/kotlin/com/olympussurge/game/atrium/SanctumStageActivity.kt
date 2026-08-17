@@ -1,4 +1,4 @@
-package com.olympussurge.game.atrium
+﻿package com.olympussurge.game.atrium
 
 import android.annotation.SuppressLint
 import android.content.ActivityNotFoundException
@@ -10,7 +10,6 @@ import android.graphics.Color
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
-import android.net.NetworkRequest
 import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
@@ -97,6 +96,29 @@ class SanctumStageActivity : ComponentActivity() {
     private var retryPending = false
     private var loadFailed = false
 
+    /** Sanitised URL history for the back gesture. Populated by
+     *  [recordSettle] only for pages that actually landed cleanly
+     *  (Chromium's own `WebBackForwardList` is unusable here because
+     *  our redirect-retry loop writes each hop into it, and stepping
+     *  back onto a hop retriggers the partner chain — the classic
+     *  "slow back reloads the same page" symptom). */
+    private val visitStack = ArrayDeque<String>()
+
+    /** The page currently on screen — the anchor point [recordSettle]
+     *  uses to decide what to push into [visitStack]. Cleared on a
+     *  fresh navigation from the outside (alert tap, new intent). */
+    private var currentSettled: String? = null
+
+    /** Set when back triggers a `loadUrl` — the target's settle should
+     *  NOT be pushed onto [visitStack] (it's the page we came from,
+     *  not a new destination). Cleared as soon as any settle lands so
+     *  a wedged marker cannot block all future recording. */
+    private var pendingBackTarget: String? = null
+
+    /** Back-gesture debounce; keeps Chromium from coalescing a spam
+     *  of taps into a single navigation the user did not want. */
+    private var lastBackAt = 0L
+
     private var pendingFileCallback: ValueCallback<Array<Uri>>? = null
     private val fileChooserLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult(),
@@ -153,14 +175,7 @@ class SanctumStageActivity : ComponentActivity() {
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                // Back is disabled entirely inside the offer. Both:
-                //   • WebView history walk (would eventually rewind to
-                //     the first page — user reported this as a bug),
-                //   • Activity close (would drop the user out of the
-                //     offer altogether).
-                // The user stays exactly where they are; the only exit
-                // is a partner-provided in-page control or a genuine
-                // connectivity drop that triggers the silence screen.
+                handleBackPress()
             }
         })
 
@@ -329,6 +344,80 @@ class SanctumStageActivity : ComponentActivity() {
         redirectRetries = 0
         loadFailed = false
         retryPending = false
+        visitStack.clear()
+        currentSettled = null
+        pendingBackTarget = null
+    }
+
+    // ------------------------------------------------------------------
+    //  Back navigation
+    // ------------------------------------------------------------------
+
+    /**
+     * Back handling contract, distilled from spec §14 and the
+     * "cannot exit the offer via back" playtest reports:
+     *
+     *   • The activity is never allowed to `finish()` from the back
+     *     gesture. Even an empty visit stack falls through to a no-op
+     *     that keeps the current page on screen.
+     *   • Navigation walks a curated stack of URLs the user actually
+     *     saw settle, NOT Chromium's raw `WebBackForwardList` — that
+     *     list is polluted by every hop of our redirect-retry loop and
+     *     stepping onto one of those intermediates re-triggers the
+     *     partner chain and dumps the user back on the same page (the
+     *     symptom the tester filed).
+     *   • A 150 ms debounce swallows rapid-fire taps so Chromium
+     *     doesn't coalesce the second tap into the first navigation.
+     *   • Any in-flight redirect retry is cancelled first — otherwise
+     *     it would settle after the back navigation and paint over
+     *     the page the user just asked for.
+     */
+    private fun handleBackPress() {
+        val now = android.os.SystemClock.uptimeMillis()
+        if (now - lastBackAt < BACK_DEBOUNCE_MS) return
+        lastBackAt = now
+
+        if (retryPending) {
+            retryPending = false
+            redirectRetries = 0
+            loadFailed = false
+            runCatching { stage.stopLoading() }
+        }
+
+        val target = visitStack.removeLastOrNull()
+        if (target == null) {
+            // Empty stack → we are on the first page. Do NOT close;
+            // never leave the offer via back (spec §14). Making sure
+            // the cover is down keeps a stray raiseCover from the
+            // cancelled retry above from wedging the UI.
+            dropCover()
+            return
+        }
+        pendingBackTarget = target
+        raiseCover()
+        stage.loadUrl(target)
+    }
+
+    /**
+     * Called from `onPageFinished` for every clean settle. Pushes the
+     * previously visible page onto [visitStack] so a later back tap
+     * can walk to it, unless this settle is itself the target of a
+     * back navigation (in which case the anchor just shifts without
+     * a push).
+     */
+    private fun recordSettle(url: String) {
+        if (pendingBackTarget != null) {
+            pendingBackTarget = null
+            currentSettled = url
+            return
+        }
+        val prev = currentSettled
+        if (prev == url) return
+        if (prev != null && visitStack.lastOrNull() != prev) {
+            visitStack.addLast(prev)
+            while (visitStack.size > VISIT_STACK_LIMIT) visitStack.removeFirst()
+        }
+        currentSettled = url
     }
 
     // ------------------------------------------------------------------
@@ -337,21 +426,42 @@ class SanctumStageActivity : ComponentActivity() {
 
     private fun watchConnectivity() {
         val cm = connectivityManager ?: return
-        val request = NetworkRequest.Builder()
-            .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-            .build()
         val callback = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
+                // The default network came up (WiFi/mobile/etc.) —
+                // cancel any pending offline hand-off; we're back.
                 offlineJob?.cancel()
                 offlineJob = null
             }
 
             override fun onLost(network: Network) {
+                // The default network went down. Schedule the
+                // silence hand-off after a short debounce so a VPN
+                // flicker or a WiFi → mobile handover does not blink
+                // an unnecessary offline screen.
                 scheduleOfflineCheck()
+            }
+
+            override fun onCapabilitiesChanged(
+                network: Network,
+                caps: NetworkCapabilities,
+            ) {
+                // Some OEM stacks drop INTERNET capability without a
+                // full `onLost` (e.g. WiFi assoc lost but the network
+                // object is briefly retained). Treat "no INTERNET"
+                // the same as onLost so the silence screen still
+                // fires.
+                if (!caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) {
+                    scheduleOfflineCheck()
+                }
             }
         }
         networkCallback = callback
-        cm.registerNetworkCallback(request, callback)
+        // Default network callback fires reliably on adapter changes
+        // across OEM stacks; the plain `registerNetworkCallback` with
+        // a capability request occasionally missed `onLost` on
+        // MIUI / EMUI when the OS switched active networks under us.
+        runCatching { cm.registerDefaultNetworkCallback(callback) }
     }
 
     private fun scheduleOfflineCheck() {
@@ -359,16 +469,43 @@ class SanctumStageActivity : ComponentActivity() {
         offlineJob = lifecycleScope.launch {
             delay(OFFLINE_DEBOUNCE_MS)
             if (!EtherProbe.online(applicationContext)) {
-                val resume = lastMainFrameUrl ?: deepestHop
-                MnemonicLog.chant(
-                    TAG,
-                    "offline detected mid-session — opening silence, resume=$resume",
-                )
-                startActivity(EtherSilenceActivity.newIntent(this@SanctumStageActivity, resume))
-                finish()
-                overridePendingTransition(0, 0)
+                jumpToSilence("connectivity dropped")
             }
         }
+    }
+
+    /**
+     * Immediate hand-off to the silence screen, preserving the last
+     * settled URL as the resume anchor so Retry lands the user back
+     * on the exact page they were on. Guarded against double-fire
+     * (WebView's error callbacks race with the connectivity monitor,
+     * so both can trip within the same handful of ms).
+     */
+    private fun jumpToSilence(reason: String) {
+        if (isFinishing || isDestroyed) return
+        val resume = lastMainFrameUrl ?: deepestHop
+        MnemonicLog.chant(TAG, "→ silence ($reason), resume=$resume")
+        offlineJob?.cancel()
+        offlineJob = null
+        runCatching { stage.stopLoading() }
+        startActivity(EtherSilenceActivity.newIntent(this, resume))
+        finish()
+        overridePendingTransition(0, 0)
+    }
+
+    /**
+     * Classifies a [WebView] main-frame error as "the pipe is gone"
+     * (vs. a real HTTP / TLS / protocol failure). These are the codes
+     * Chromium hands us when the OS has torn down the network under
+     * the load — anything else deserves the redirect-retry loop first.
+     *
+     * Descriptions are matched case-insensitively because different
+     * WebView revs use slightly different message shapes.
+     */
+    private fun isNoInternetError(errorCode: Int, description: CharSequence?): Boolean {
+        if (errorCode in NO_NET_ERROR_CODES) return true
+        val text = description?.toString()?.lowercase(Locale.ROOT).orEmpty()
+        return NO_NET_MARKERS.any { it in text }
     }
 
     // ------------------------------------------------------------------
@@ -438,6 +575,7 @@ class SanctumStageActivity : ComponentActivity() {
             lastMainFrameUrl = url
             retryPending = false
             redirectRetries = 0
+            recordSettle(url)
             sprinkleVeil()
             sprinkleDock()
             dropCover()
@@ -467,6 +605,16 @@ class SanctumStageActivity : ComponentActivity() {
                 TAG,
                 "onReceivedError code=${error.errorCode} desc=${error.description}",
             )
+            // A hard "no internet" error must NOT enter the redirect
+            // retry loop — the spinner cover would sit there forever
+            // burning battery on doomed reloads while the user thinks
+            // the app is hung. Kick straight to the silence screen,
+            // with the last visible URL preserved so Retry lands back
+            // on the same page once the pipe is up.
+            if (isNoInternetError(error.errorCode, error.description)) {
+                jumpToSilence("web error ${error.errorCode}: ${error.description}")
+                return
+            }
             handleAnyMainFrameError(view)
         }
 
@@ -638,11 +786,45 @@ class SanctumStageActivity : ComponentActivity() {
         /** VPN flickers reconnect within ~500ms; wait a beat before nuking. */
         private const val OFFLINE_DEBOUNCE_MS = 720L
 
+        /** Back-gesture debounce (see [handleBackPress]). Just above
+         *  the finger travel time between two quick taps — long enough
+         *  to swallow accidental doubles, short enough that a deliberate
+         *  two-step back feels instant. */
+        private const val BACK_DEBOUNCE_MS = 150L
+
+        /** Cap on the URL history the back gesture walks through. A
+         *  session that goes deeper than this loses the very oldest
+         *  entries; the head remains navigable and back never closes
+         *  the offer. */
+        private const val VISIT_STACK_LIMIT = 32
+
         private const val COVER_BG = 0xFF0B0B0F.toInt()
         private const val STAGE_BG = 0xFF0B0B0F.toInt()
         private const val SPINNER_COLOR = 0xFFF2C464.toInt()
 
         private val IN_APP_SCHEMES = setOf("http", "https", "about", "data", "blob")
+
+        /** Main-frame [WebViewClient] error codes that mean "the pipe
+         *  is gone" — no retry loop, just hand the user the silence
+         *  screen. Values are the framework constants; listed as
+         *  literals so this list can grow without an import churn. */
+        private val NO_NET_ERROR_CODES = setOf(
+            WebViewClient.ERROR_HOST_LOOKUP,   // DNS died
+            WebViewClient.ERROR_CONNECT,       // TCP could not connect
+            WebViewClient.ERROR_IO,            // link lost mid-transfer
+            WebViewClient.ERROR_TIMEOUT,       // link stalled
+            WebViewClient.ERROR_PROXY_AUTHENTICATION,
+        )
+
+        /** Chromium sometimes only surfaces the network-death signal
+         *  via the description string (localised) — match the stable
+         *  English substring the Android WebView ships. */
+        private val NO_NET_MARKERS = arrayOf(
+            "internet_disconnected",
+            "name_not_resolved",
+            "address_unreachable",
+            "network_changed",
+        )
 
         fun newIntent(context: Context, url: String): Intent =
             Intent(context, SanctumStageActivity::class.java).apply {

@@ -2,7 +2,9 @@
 
 import android.app.ActivityOptions
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -56,6 +58,15 @@ class IgnitionActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Explicitly opt this activity into drawing behind display
+        // cutouts. Without this the OS reserves a black bar over the
+        // camera notch region on the splash screen — every other
+        // "gray" surface (silence, consent, stage) draws its own black
+        // top strip to visually match that reserved area, but the
+        // splash key art is meant to bleed all the way to the top
+        // edge (no notch strip). Only affects this activity's window;
+        // sibling activities keep their existing insets treatment.
+        allowDrawUnderCutout()
         enableEdgeToEdge()
         goFullscreen()
 
@@ -86,31 +97,20 @@ class IgnitionActivity : ComponentActivity() {
         val resume = intent.getStringExtra(EXTRA_RESUME_URL)?.takeIf { it.isNotBlank() }
             ?: return false
 
-        // The silence screen may have handed us this launch "blindly"
-        // (its Retry no longer probes on its own — the router does).
-        // If we are actually still offline, we cannot hand the resume
-        // URL to the stage: the stage would spin under the loading
-        // cover forever with no way for the user to retry. A cheap
-        // snapshot check is fast enough to catch the common case; the
-        // real-reachability probe is only spent when the snapshot says
-        // we are up but might be lying (see EtherProbe.reachable).
-        lifecycleScope.launch {
-            val reallyUp = withContext(Dispatchers.IO) {
-                EtherProbe.reachable(applicationContext)
-            }
-            if (!reallyUp) {
-                MnemonicLog.warn(
-                    TAG,
-                    "resume-URL short-circuit: still offline → bouncing to silence, resume=$resume",
-                )
-                routed = true
-                launchAndFinish(EtherSilenceActivity.newIntent(this@IgnitionActivity, resume))
-                return@launch
-            }
-            MnemonicLog.chant(TAG, "resume-URL short-circuit → resuming stage at $resume")
-            routerVerdict = RouteVerdict.OpenPortal(startUrl = resume, virgin = false)
-            tryRoute()
-        }
+        // Hand straight back to the stage. Do NOT gate on a
+        // connectivity check here — the silence screen already made
+        // that call (its Retry only fires when the user asks for a
+        // retry, and its auto-recovery only fires after a real TCP
+        // probe succeeds). Adding a second gate here caused a
+        // reproducible false negative on hotel wifi / VPN where the
+        // OS's link report lagged the actual network by 3-8 seconds
+        // and the user was bounced right back to silence despite
+        // having internet. The stage's own load callbacks will catch
+        // a truly-dead network and route back here with the same
+        // resume URL preserved.
+        MnemonicLog.chant(TAG, "resume-URL short-circuit → resuming stage at $resume")
+        routerVerdict = RouteVerdict.OpenPortal(startUrl = resume, virgin = false)
+        tryRoute()
         return true
     }
 
@@ -261,6 +261,26 @@ class IgnitionActivity : ComponentActivity() {
         controller.systemBarsBehavior =
             WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         controller.hide(WindowInsetsCompat.Type.systemBars())
+    }
+
+    /**
+     * Extends the splash window into the display-cutout region so the
+     * key art fills the whole panel — no reserved black strip over
+     * the notch. The system defaults to [LAYOUT_IN_DISPLAY_CUTOUT_MODE_DEFAULT]
+     * which paints that strip; without an explicit override the
+     * splash looks pillar-boxed on any device with a top cutout in
+     * landscape. Feature guarded on API 28 (cutout API introduction).
+     */
+    private fun allowDrawUnderCutout() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return
+        val target = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+        } else {
+            WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+        }
+        window.attributes = window.attributes.apply {
+            layoutInDisplayCutoutMode = target
+        }
     }
 
     private fun app(): SanctumApplication = application as SanctumApplication

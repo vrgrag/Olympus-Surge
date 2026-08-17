@@ -14,20 +14,15 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import android.view.WindowManager
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -78,6 +73,11 @@ class OracleConsentActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Draw under any display cutout — the artwork bleeds all the
+        // way to the top edge. The sibling stage (WebView) still pads
+        // around the notch: that surface hosts partner-owned UI that
+        // must not disappear under hardware.
+        allowDrawUnderCutout()
         enableEdgeToEdge()
         goImmersive()
         setContent {
@@ -118,6 +118,18 @@ class OracleConsentActivity : ComponentActivity() {
         controller.hide(WindowInsetsCompat.Type.systemBars())
     }
 
+    private fun allowDrawUnderCutout() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return
+        val target = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+        } else {
+            WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+        }
+        window.attributes = window.attributes.apply {
+            layoutInDisplayCutoutMode = target
+        }
+    }
+
     private fun vault() = (application as SanctumApplication).vault
 
     companion object {
@@ -134,22 +146,17 @@ class OracleConsentActivity : ComponentActivity() {
 private fun ConsentScreen(onAccept: () -> Unit, onSkip: () -> Unit) {
     val landscape =
         LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
-    // Top-only inset: keeps the buttons out from under a notch, but no
-    // horizontal inset that would drag the row off the horizontal centre.
-    // Use max(statusBars, displayCutout) so a camera notch on the long
-    // edge (landscape) is fully covered by the black bar.
-    val statusBarTop: PaddingValues = WindowInsets.statusBars.asPaddingValues()
-    val cutoutTop: PaddingValues = WindowInsets.displayCutout.asPaddingValues()
-    val topInsetDp = maxOf(
-        statusBarTop.calculateTopPadding().value,
-        cutoutTop.calculateTopPadding().value,
-    ).dp
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFF0A0E22)),
     ) {
+        // Bleed all the way to the top edge — the activity is
+        // extended under the display cutout so the artwork paints
+        // over the notch region. The buttons live in the bottom half
+        // (see `Arrangement.Bottom` below) so no content overlaps
+        // hardware.
         Image(
             painter = painterResource(R.drawable.bg_notifications),
             contentDescription = null,
@@ -162,7 +169,7 @@ private fun ConsentScreen(onAccept: () -> Unit, onSkip: () -> Unit) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(top = topInsetDp, bottom = bottomInset),
+                .padding(bottom = bottomInset),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Bottom,
         ) {
@@ -182,18 +189,6 @@ private fun ConsentScreen(onAccept: () -> Unit, onSkip: () -> Unit) {
                 Spacer(Modifier.height(14.dp))
                 ConsentButton(label = "Skip", onClick = onSkip, widthDp = 280)
             }
-        }
-
-        // Solid black bar hiding the camera-cutout area. Painted last so
-        // it sits above the artwork AND above any button that would
-        // poke up into the cutout region on very short landscape devices.
-        if (topInsetDp.value > 0f) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(topInsetDp)
-                    .background(Color.Black),
-            )
         }
     }
 }

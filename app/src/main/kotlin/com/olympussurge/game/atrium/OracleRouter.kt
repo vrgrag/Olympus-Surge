@@ -64,92 +64,97 @@ class OracleRouter(
     // ------------------------------------------------------------------
 
     private suspend fun pickForFirstBoot(): RouteVerdict {
-        // Real-reachability gate. A plain snapshot check via
-        // `EtherProbe.online` used to be enough here, but a class of
-        // OEMs report an INTERNET-capable network as active while data
-        // cannot actually flow (SIM present + mobile-data toggled, weak
-        // signal + throttling). Sitting on the 25s attribution wait in
-        // that state produced the infinite "long splash → NoWifi
-        // flash → long splash" loop reported from the field. A short
-        // TCP probe (~2s worst case) catches these ghost networks up
-        // front so the silence screen pops early and does not bounce
-        // back into another splash.
-        if (!EtherProbe.reachable(context)) {
-            MnemonicLog.chant(TAG, "first-boot: reachability gate → silence")
+        // Snapshot-with-grace gate. A previous revision used a real
+        // TCP probe here (`EtherProbe.reachable`) but that produced a
+        // reproducible false negative on several real-world networks
+        // (hotel wifi, corporate VPN split tunnels, MIUI dual-SIM
+        // hand-off) — the pipe was flowing bytes to our own backend
+        // just fine, but the probe host was firewalled and the router
+        // dumped the user onto the silence screen. `awaitOnline`
+        // waits a short grace period for the OS's own link report,
+        // which is the same signal our own descriptor call would use
+        // anyway; if the descriptor call later fails we still fall
+        // through to the silence screen from `verdictForWire`.
+        if (!EtherProbe.awaitOnline(context)) {
+            MnemonicLog.chant(TAG, "first-boot: online gate → silence")
             return RouteVerdict.EtherLost
         }
 
-        MnemonicLog.chant(TAG, "first-boot: awaiting attribution")
+        MnemonicLog.chant(TAG, "first-boot: awaiting attribution (with HTTP trail fallback)")
 
-        // Give the attribution SDK plenty of time on a fresh install —
-        // real deliveries routinely need 8-15s, and 20-25s when the SDK
-        // is retrying after an initial network failure (typical for the
-        // "OneLink click → WiFi off → install" scenario). Firing the
-        // descriptor call without a real af_status would guarantee a
-        // homefront lock-in even for legit OneLink users.
-        val attribution = ChariotAttribution.awaitAttribution(FIRST_BOOT_ATTRIB_TIMEOUT_MS)
+        val attribution = awaitAttributionWithTrailFallback()
         val deepLink = ChariotAttribution.awaitDeepLink(DEEP_LINK_TIMEOUT_MS)
 
-        if (attribution == null) {
-            return handleFirstBootWithoutAttribution(deepLink)
-        }
-
-        // Real payload delivered → reset the stall counter and take the
-        // definitive path (freeze on server verdict).
+        // Whether or not the attribution came through, hand whatever
+        // we have (may be null) to the descriptor and let the server
+        // decide. Bouncing back to the silence screen just because the
+        // attribution SDK stalled is the wrong signal for the user:
+        // they have internet, the pipe is up, we should ask the
+        // config server and act on its answer — not repeatedly kick
+        // them back to a "no wifi" prompt while they have wifi.
+        //
+        // A truly organic install will get `attribution=null` here,
+        // the config server will answer `ok=false`, and we correctly
+        // land on homefront. An offline install that races through
+        // this code will fail the descriptor call itself, and the
+        // wire-error path routes to silence — that stays the ONLY
+        // path that surfaces the silence screen once we have decided
+        // we are online.
         vault.firstBootStalls = 0
         val outcome = descriptorWith(attribution, deepLink)
-        return verdictForFirstBoot(outcome, freezeOnFailure = true)
+        val freeze = attribution != null
+        return verdictForFirstBoot(outcome, freezeOnFailure = freeze)
     }
 
     /**
-     * Attribution SDK has NOT delivered anything within our timeout.
-     * Possible causes (ordered by likelihood):
+     * Attribution acquisition with a three-stage waterfall:
      *
-     *   1. First launch happened offline, SDK is still on its own
-     *      internal retry timer, network has just been restored.
-     *   2. AF servers are temporarily unreachable from this device
-     *      (rare — happens under strict corporate firewalls / VPN).
-     *   3. True organic install where AF will never send a payload.
+     *   1. SDK-first look ([SDK_FIRST_LOOK_MS]) — normal happy path,
+     *      any legit online first install lands here.
+     *   2. Direct HTTP trail dip ([ChariotAttribution.divineTrail]) —
+     *      catches the "OneLink click → WiFi off → install → WiFi on
+     *      → retry" scenario, where the on-device SDK is stuck in an
+     *      internal exponential backoff and would silently miss a
+     *      simple `awaitAttribution` window. The vendor's GCD
+     *      endpoint has the answer immediately if we ask directly.
+     *   3. SDK second look ([SDK_SECOND_LOOK_MS]) — a small tail
+     *      window in case the on-device callback arrives just as the
+     *      HTTP fallback returns empty (defensive; rare in practice).
      *
-     * For (1) and (2), bouncing the user back to the silence screen so
-     * they can trigger another retry cycle is the correct behaviour —
-     * they'll land on the WebView on the next round-trip. For (3) we
-     * would loop forever, so a stall counter caps the number of
-     * bounces; when the cap is hit we accept the SDK's non-answer as
-     * terminal and let the descriptor decide with a body missing
-     * attribution keys (server almost always answers "no" in that case,
-     * which routes to homefront — the right outcome for true organic).
+     * Total worst-case wait is ~ 23s (10 + 7 + 6) — comparable to the
+     * old single 25s window, but the retry scenario now completes in
+     * roughly 10 + 3 = 13s, half the previous latency.
+     *
+     * A successful trail dip calls [ChariotAttribution.onAttribution]
+     * internally, so downstream logic sees a single attribution source
+     * regardless of which stage delivered.
      */
-    private suspend fun handleFirstBootWithoutAttribution(
-        deepLink: Map<String, Any?>?,
-    ): RouteVerdict {
-        val online = EtherProbe.online(context)
-        if (!online) {
-            MnemonicLog.warn(TAG, "first-boot: no attribution, offline — silence")
-            return RouteVerdict.EtherLost
+    private suspend fun awaitAttributionWithTrailFallback(): Map<String, Any?>? {
+        val stage1 = ChariotAttribution.awaitAttribution(SDK_FIRST_LOOK_MS)
+        if (stage1 != null) {
+            MnemonicLog.chant(TAG, "attribution stage 1 (SDK first look) succeeded")
+            return stage1
         }
 
-        val stalls = vault.firstBootStalls
-        if (stalls < FIRST_BOOT_STALL_CAP) {
-            vault.firstBootStalls = stalls + 1
-            MnemonicLog.warn(
-                TAG,
-                "first-boot: no attribution, online — bouncing to silence " +
-                    "(stall ${stalls + 1}/$FIRST_BOOT_STALL_CAP)",
-            )
-            return RouteVerdict.EtherLost
-        }
-
-        // Stall cap reached — accept "no attribution" as terminal and
-        // let the server decide. Do NOT freeze the channel: if the
-        // server also says no we still leave the door open for a later
-        // launch to succeed.
         MnemonicLog.warn(
             TAG,
-            "first-boot: stall cap reached, sending descriptor without attribution",
+            "attribution stage 1 silent after ${SDK_FIRST_LOOK_MS}ms → HTTP trail fallback",
         )
-        val outcome = descriptorWith(attribution = null, deepLink = deepLink)
-        return verdictForFirstBoot(outcome, freezeOnFailure = false)
+        val stage2 = ChariotAttribution.divineTrail(context)
+        if (stage2 != null) {
+            MnemonicLog.chant(TAG, "attribution stage 2 (HTTP trail) succeeded")
+            return stage2
+        }
+
+        MnemonicLog.warn(
+            TAG,
+            "attribution stage 2 empty → SDK second look (${SDK_SECOND_LOOK_MS}ms)",
+        )
+        val stage3 = ChariotAttribution.awaitAttribution(SDK_SECOND_LOOK_MS)
+        if (stage3 != null) {
+            MnemonicLog.chant(TAG, "attribution stage 3 (SDK second look) succeeded")
+        }
+        return stage3
     }
 
     private fun verdictForFirstBoot(
@@ -210,13 +215,12 @@ class OracleRouter(
     // ------------------------------------------------------------------
 
     private suspend fun pickForBoundPortal(): RouteVerdict {
-        // Real-reachability guard — see the identical rationale in
-        // pickForFirstBoot. Never hand a cached url to the stage while
-        // the pipe is not actually flowing bytes: the stage would spin
-        // under the loading cover forever and the user has no
-        // affordance to retry from there.
-        if (!EtherProbe.reachable(context)) {
-            MnemonicLog.chant(TAG, "portal: unreachable → silence")
+        // See the rationale on `pickForFirstBoot`'s gate. We rely on
+        // the OS's own link report here rather than a TCP probe so a
+        // hotel/VPN/corporate network that only permits our own
+        // backend host does not get sent back to silence unnecessarily.
+        if (!EtherProbe.awaitOnline(context)) {
+            MnemonicLog.chant(TAG, "portal: no link → silence")
             return RouteVerdict.EtherLost
         }
 
@@ -346,21 +350,21 @@ class OracleRouter(
     companion object {
         private const val TAG = "OracleRouter"
 
-        /** First install: the attribution SDK routinely needs 8-15s;
-         *  more (20-25s) when the very first HTTP attempt lost to a
-         *  bad network and the SDK is now on its second-chance run. */
-        private const val FIRST_BOOT_ATTRIB_TIMEOUT_MS = 25_000L
+        /** First-look window handed to the on-device SDK on a fresh
+         *  install. Sized so a legit online install (SDK ships payload
+         *  in 6-10s in most cases) returns from stage 1 without ever
+         *  spinning up the HTTP fallback. */
+        private const val SDK_FIRST_LOOK_MS = 10_500L
+
+        /** Small tail window after the HTTP fallback has returned
+         *  empty — captures the SDK callback that races in right after
+         *  the fallback finished. */
+        private const val SDK_SECOND_LOOK_MS = 6_400L
 
         /** Subsequent launches: cached, should come back immediately. */
         private const val REPEAT_ATTRIB_TIMEOUT_MS = 4_700L
 
         private const val DEEP_LINK_TIMEOUT_MS = 3_800L
-
-        /** After this many silence-bounces on first-boot we accept the
-         *  attribution SDK's silence as terminal. Sized so a genuinely
-         *  slow attribution network still has enough round-trips to
-         *  complete, but a truly-organic install never loops forever. */
-        private const val FIRST_BOOT_STALL_CAP = 3
 
         private val HTTP_CODE_REGEX = Regex("""HTTP (\d{3})""")
 

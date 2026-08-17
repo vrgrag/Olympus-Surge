@@ -7,7 +7,9 @@ import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
+import android.os.Build
 import android.os.Bundle
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
@@ -20,15 +22,10 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -90,6 +87,14 @@ class EtherSilenceActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Extend the window into the display-cutout region so the
+        // full-bleed key art paints all the way to the top edge — no
+        // reserved OS black strip over the notch. Only affects this
+        // activity's window. Sibling activities keep their own
+        // insets treatment (the WebView stage still pads around the
+        // notch: it hosts partner UI that should not disappear under
+        // hardware).
+        allowDrawUnderCutout()
         enableEdgeToEdge()
         goImmersive()
 
@@ -230,6 +235,18 @@ class EtherSilenceActivity : ComponentActivity() {
         )
     }
 
+    private fun allowDrawUnderCutout() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return
+        val target = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+        } else {
+            WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+        }
+        window.attributes = window.attributes.apply {
+            layoutInDisplayCutoutMode = target
+        }
+    }
+
     companion object {
         private const val TAG = "EtherSilence"
 
@@ -256,15 +273,15 @@ private fun SilenceScreen(
 ) {
     val landscape =
         LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
-    val statusTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding().value
-    val cutoutTop = WindowInsets.displayCutout.asPaddingValues().calculateTopPadding().value
-    val topInsetDp = maxOf(statusTop, cutoutTop).dp
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFF0A0E22)),
     ) {
+        // Bleed all the way to the top edge — the activity has been
+        // extended under the display cutout so no OS-reserved black
+        // strip clips the artwork.
         Image(
             painter = painterResource(R.drawable.bg_no_wifi),
             contentDescription = null,
@@ -275,7 +292,7 @@ private fun SilenceScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(top = topInsetDp, bottom = if (landscape) 32.dp else 56.dp),
+                .padding(bottom = if (landscape) 32.dp else 56.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Bottom,
         ) {
@@ -310,16 +327,6 @@ private fun SilenceScreen(
                     )
                 }
             }
-        }
-
-        // Solid black bar over the camera-cutout / status-bar area.
-        if (topInsetDp.value > 0f) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(topInsetDp)
-                    .background(Color.Black),
-            )
         }
     }
 }
