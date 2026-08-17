@@ -84,6 +84,7 @@ class EtherSilenceActivity : ComponentActivity() {
     private var checking by mutableStateOf(false)
     private val relaunchGuard = AtomicBoolean(false)
     private var netCallback: ConnectivityManager.NetworkCallback? = null
+    private var stallAutoRetry: kotlinx.coroutines.Job? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -117,11 +118,48 @@ class EtherSilenceActivity : ComponentActivity() {
         }
 
         registerConnectivityWatch()
+        armStallAutoRetry()
     }
 
     override fun onDestroy() {
+        stallAutoRetry?.cancel()
+        stallAutoRetry = null
         unregisterConnectivityWatch()
         super.onDestroy()
+    }
+
+    /**
+     * Fires when the router bounced us here because attribution was
+     * still stuck even though the pipe was up (see the "attribution
+     * stall gate" in `OracleRouter.pickForFirstBoot`). We detect
+     * that state cheaply: if the OS still reports an online default
+     * network at the moment we opened, this open cannot be a real
+     * no-Wi-Fi event — the only remaining explanation is the router
+     * bounced us. The connectivity watch skips registration on the
+     * same condition (a "ghost network" open would otherwise fire
+     * auto-relaunch instantly and loop the user through the splash
+     * forever), so we schedule a single delayed relaunch to give
+     * the vendor's SDK / server pipeline more real wall-clock time
+     * to converge before the router tries the waterfall again. The
+     * user does not have to tap Retry.
+     *
+     * If they DO tap Retry earlier, the guard in [startRetry]
+     * disarms the auto-retry (the launcher path becomes the same
+     * activity swap; the timer would be a no-op anyway).
+     */
+    private fun armStallAutoRetry() {
+        if (!EtherProbe.online(this)) return
+        MnemonicLog.chant(
+            TAG,
+            "silence opened while online → arming auto-retry in ${STALL_AUTO_RETRY_MS}ms",
+        )
+        stallAutoRetry = lifecycleScope.launch {
+            delay(STALL_AUTO_RETRY_MS)
+            if (!isFinishing && !isDestroyed) {
+                MnemonicLog.chant(TAG, "silence auto-retry timer fired")
+                startRetry()
+            }
+        }
     }
 
     /**
@@ -198,6 +236,8 @@ class EtherSilenceActivity : ComponentActivity() {
      */
     private fun startRetry() {
         if (!relaunchGuard.compareAndSet(false, true)) return
+        stallAutoRetry?.cancel()
+        stallAutoRetry = null
         checking = true
         val resumeUrl = intent.getStringExtra(EXTRA_RESUME_URL)
 
@@ -254,6 +294,15 @@ class EtherSilenceActivity : ComponentActivity() {
          *  like it did something before the activity swap. Not a
          *  round 500 — the sibling Kotlin port uses 500. */
         private const val RETRY_DWELL_MS = 420L
+
+        /** Delay before the silent auto-retry timer fires. Only used
+         *  when the router bounced us here because attribution was
+         *  still stalled (see `OracleRouter`); a genuine "no Wi-Fi"
+         *  open leaves the timer disarmed and waits for the network
+         *  callback / user tap instead. Long enough to buy AppsFlyer
+         *  another real attribution attempt across the wire, short
+         *  enough that the silence screen doesn't feel abandoned. */
+        private const val STALL_AUTO_RETRY_MS = 5_600L
 
         /** URL the user was on when connectivity dropped — preserved so
          *  a successful Retry resumes on the exact same page. */

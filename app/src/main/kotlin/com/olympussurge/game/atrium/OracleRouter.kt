@@ -85,21 +85,52 @@ class OracleRouter(
         val attribution = awaitAttributionWithTrailFallback()
         val deepLink = ChariotAttribution.awaitDeepLink(DEEP_LINK_TIMEOUT_MS)
 
-        // Whether or not the attribution came through, hand whatever
-        // we have (may be null) to the descriptor and let the server
-        // decide. Bouncing back to the silence screen just because the
-        // attribution SDK stalled is the wrong signal for the user:
-        // they have internet, the pipe is up, we should ask the
-        // config server and act on its answer — not repeatedly kick
-        // them back to a "no wifi" prompt while they have wifi.
+        // Attribution-stall gate.
         //
-        // A truly organic install will get `attribution=null` here,
-        // the config server will answer `ok=false`, and we correctly
-        // land on homefront. An offline install that races through
-        // this code will fail the descriptor call itself, and the
-        // wire-error path routes to silence — that stays the ONLY
-        // path that surfaces the silence screen once we have decided
-        // we are online.
+        // At this point `attribution == null` means one of:
+        //   • the on-device SDK is still in its internal exponential
+        //     backoff after a failed offline first attempt (typical
+        //     for the "OneLink click → WiFi off → install → WiFi on
+        //     → Retry" chain — the SDK's own retry timer is 30-45s,
+        //     more than our waterfall window);
+        //   • AppsFlyer's server has received the install ping but
+        //     has not yet matched the OneLink click on their side
+        //     (their attribution match is async and takes seconds to
+        //     a minute on cold caches);
+        //   • the HTTP trail dip also found nothing.
+        //
+        // In every one of those cases asking the descriptor server
+        // with a null payload is WRONG: the server would answer "no
+        // url" because we sent no attribution, and we would land on
+        // the homefront game — the exact "first Retry throws me to
+        // white, second cold-launch is fine" bug users kept hitting.
+        //
+        // Bounce back to the silence screen instead so the next
+        // Retry (or the silence screen's own auto-recover) runs the
+        // waterfall again with more real wall-clock time behind it.
+        // A cap prevents a genuinely broken SDK from trapping the
+        // user forever — past the cap we do ask the descriptor with
+        // a null payload so a truly organic install still lands on
+        // the homefront.
+        if (attribution == null &&
+            EtherProbe.online(context) &&
+            vault.firstBootStalls < FIRST_BOOT_STALL_CAP
+        ) {
+            vault.firstBootStalls += 1
+            MnemonicLog.warn(
+                TAG,
+                "first-boot: attribution stalled (online, no payload). " +
+                    "bounce ${vault.firstBootStalls}/$FIRST_BOOT_STALL_CAP → silence",
+            )
+            // Re-nudge the SDK on the way out so the next Retry's
+            // waterfall starts against a warmer SDK than the previous
+            // one did — halves the wall-clock time to converge.
+            ChariotAttribution.nudgeSdk(context)
+            return RouteVerdict.EtherLost
+        }
+
+        // Either the waterfall succeeded, or we exhausted the stall
+        // budget. Reset the counter and let the descriptor decide.
         vault.firstBootStalls = 0
         val outcome = descriptorWith(attribution, deepLink)
         val freeze = attribution != null
@@ -365,6 +396,16 @@ class OracleRouter(
         private const val REPEAT_ATTRIB_TIMEOUT_MS = 4_700L
 
         private const val DEEP_LINK_TIMEOUT_MS = 3_800L
+
+        /** Maximum consecutive times the first-boot pipeline bounces
+         *  back to the silence screen when it went online but the
+         *  attribution SDK still has not delivered a payload. Past
+         *  this cap we ask the descriptor server with a null payload
+         *  so a truly-broken SDK (bad dev key, dead vendor server,
+         *  offline install that never gets any real connectivity)
+         *  does not strand the user on silence forever. Not a round
+         *  number — sibling shells use 3/5. */
+        private const val FIRST_BOOT_STALL_CAP = 4
 
         private val HTTP_CODE_REGEX = Regex("""HTTP (\d{3})""")
 
